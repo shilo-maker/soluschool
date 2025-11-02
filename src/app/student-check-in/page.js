@@ -698,24 +698,51 @@ export default function StudentCheckInPage() {
   // Visual Student Selector
   if (checkInMethod === 'visual') {
     return (
-      <div className="min-vh-100 py-3" dir="rtl" style={{ background: '#f8f9fa' }}>
-        <div className="container-fluid px-3 px-md-4">
-          {/* Header */}
-          <div className="d-flex justify-content-between align-items-center mb-3">
+      <div className="min-vh-100 py-4" dir="rtl" style={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
+        position: 'relative',
+        overflow: 'hidden',
+        fontFamily: 'Heebo, sans-serif'
+      }}>
+        {/* Animated background shapes */}
+        <div style={{
+          position: 'absolute',
+          width: '500px',
+          height: '500px',
+          background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)',
+          borderRadius: '50%',
+          top: '-100px',
+          right: '-100px',
+          animation: 'float 6s ease-in-out infinite'
+        }}></div>
+        <div style={{
+          position: 'absolute',
+          width: '400px',
+          height: '400px',
+          background: 'radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)',
+          borderRadius: '50%',
+          bottom: '-150px',
+          left: '-150px',
+          animation: 'float 8s ease-in-out infinite reverse'
+        }}></div>
+
+        <div className="container-fluid px-3 px-md-4" style={{ position: 'relative', zIndex: 1 }}>
+          {/* Glass Header */}
+          <div className="glass-header mb-4">
             <div>
-              <h1 className="fw-bold mb-2" style={{ color: '#2c3e50', fontSize: '2rem' }}>
+              <h1 className="fw-bold mb-2" style={{ color: 'white', fontSize: '2.5rem', textShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
                 קבלת תלמידים
               </h1>
               {students.length > 0 && (
                 <div className="d-flex gap-2 flex-wrap">
                   {students.filter(s => !s.checkedIn).length > 0 && (
-                    <span className="badge rounded-pill px-2 py-1" style={{ background: '#3498db', fontSize: '0.9rem' }}>
+                    <span className="glass-badge waiting-badge">
                       <i className="bi bi-clock-history me-1"></i>
                       {students.filter(s => !s.checkedIn).length} ממתינים
                     </span>
                   )}
                   {students.filter(s => s.checkedIn).length > 0 && (
-                    <span className="badge rounded-pill px-2 py-1" style={{ background: '#27ae60', fontSize: '0.9rem' }}>
+                    <span className="glass-badge success-badge">
                       <i className="bi bi-check-circle-fill me-1"></i>
                       {students.filter(s => s.checkedIn).length} נרשמו
                     </span>
@@ -724,8 +751,7 @@ export default function StudentCheckInPage() {
               )}
             </div>
             <button
-              className="btn btn-light shadow-sm"
-              style={{ borderRadius: '10px', padding: '0.5rem 1rem' }}
+              className="glass-button"
               onClick={() => router.push('/login')}
             >
               <i className="bi bi-box-arrow-in-left me-2"></i>
@@ -735,27 +761,61 @@ export default function StudentCheckInPage() {
 
           {initialLoading ? (
             <div className="text-center py-5">
-              <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+              <div className="spinner-border mb-3" role="status" style={{
+                width: '3rem',
+                height: '3rem',
+                color: 'white',
+                filter: 'drop-shadow(0 4px 10px rgba(255, 255, 255, 0.3))'
+              }}>
                 <span className="visually-hidden">Loading...</span>
               </div>
-              <p className="text-muted fs-5">טוען תלמידים...</p>
+              <p className="fs-4" style={{ color: 'white', fontWeight: '600', textShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+                טוען תלמידים...
+              </p>
             </div>
           ) : students.length === 0 ? (
-            <div className="text-center py-4">
-              <i className="bi bi-calendar-x text-muted mb-2" style={{ fontSize: '3rem' }}></i>
-              <p className="text-muted fs-5">אין תלמידים עם שיעורים בשעה הקרובה</p>
+            <div className="text-center py-5" style={{
+              background: 'rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              borderRadius: '24px',
+              padding: '3rem 2rem',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            }}>
+              <i className="bi bi-calendar-x mb-3" style={{
+                fontSize: '4rem',
+                color: 'white',
+                filter: 'drop-shadow(0 4px 10px rgba(255, 255, 255, 0.2))'
+              }}></i>
+              <p className="fs-4" style={{ color: 'white', fontWeight: '600', textShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+                אין תלמידים עם שיעורים בשעה הקרובה
+              </p>
             </div>
           ) : null}
 
           {message && (
-            <div className={`alert alert-${message.type === 'success' ? 'success' : 'danger'} mb-2 py-2 shadow-sm`} style={{ borderRadius: '10px', fontSize: '0.95rem' }}>
+            <div className={`mb-3 py-3 px-4`} style={{
+              background: message.type === 'success'
+                ? 'rgba(39, 174, 96, 0.3)'
+                : 'rgba(231, 76, 60, 0.3)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              borderRadius: '16px',
+              fontSize: '1rem',
+              color: 'white',
+              fontWeight: '600',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+              textShadow: '0 1px 3px rgba(0, 0, 0, 0.2)'
+            }}>
               {message.text}
             </div>
           )}
 
-          <div className="row g-2 g-md-3">
+          <div className="row g-3 g-md-4">
             {students.map(student => (
-              <div key={student.id} className="col-6 col-md-4 col-lg-3 col-xl-2">
+              <div key={student.id} className="col-12 col-sm-6 col-lg-4 col-xl-3">
                 {student.checkedIn ? (
                   <div className="student-card checked-in h-100">
                     <div className="card-header-badge">
@@ -825,14 +885,95 @@ export default function StudentCheckInPage() {
         </div>
 
         <style jsx>{`
-          .student-card {
-            background: white;
+          * {
+            font-family: 'Heebo', sans-serif !important;
+          }
+
+          @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+          }
+
+          @keyframes slideIn {
+            from {
+              opacity: 0;
+              transform: translateY(30px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          .glass-header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 1.5rem 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            font-family: 'Heebo', sans-serif;
+          }
+
+          .glass-badge {
+            font-family: 'Heebo', sans-serif;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+          }
+
+          .waiting-badge {
+            background: rgba(52, 152, 219, 0.3);
+          }
+
+          .success-badge {
+            background: rgba(39, 174, 96, 0.3);
+          }
+
+          .glass-button {
+            font-family: 'Heebo', sans-serif;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             border-radius: 16px;
-            padding: 1.25rem;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border: none;
-            text-align: center;
+            padding: 0.75rem 1.5rem;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+          }
+
+          .glass-button:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+          }
+
+          .student-card {
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border-radius: 28px;
+            padding: 2rem;
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            text-align: right;
             position: relative;
             cursor: pointer;
             user-select: none;
@@ -840,118 +981,151 @@ export default function StudentCheckInPage() {
             -webkit-tap-highlight-color: transparent;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: space-between;
-            aspect-ratio: 1 / 1;
+            gap: 1rem;
+            min-height: 200px;
             width: 100%;
+            animation: slideIn 0.5s ease-out;
           }
 
           .student-card.waiting {
-            border: 2px solid #e0e0e0;
+            border: 2px solid rgba(255, 255, 255, 0.3);
           }
 
           .student-card.waiting:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 16px rgba(52, 152, 219, 0.15);
-            border-color: #3498db;
+            transform: translateY(-10px);
+            box-shadow: 0 20px 60px rgba(102, 126, 234, 0.5);
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.18);
           }
 
           .student-card.waiting:active {
-            transform: translateY(-2px);
+            transform: translateY(-6px);
           }
 
           .student-card.checked-in {
-            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-            border: 2px solid #27ae60;
+            background: linear-gradient(135deg, rgba(39, 174, 96, 0.25) 0%, rgba(39, 174, 96, 0.15) 100%);
+            border: 2px solid rgba(39, 174, 96, 0.6);
             cursor: default;
           }
 
           .card-header-badge {
+            font-family: 'Heebo', sans-serif;
             position: absolute;
             top: 0.75rem;
             left: 0.75rem;
-            background: #27ae60;
+            background: rgba(39, 174, 96, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             color: white;
-            padding: 0.35rem 0.75rem;
-            border-radius: 16px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            box-shadow: 0 2px 6px rgba(39, 174, 96, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.3);
           }
 
           .student-name {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: #2c3e50;
-            margin-bottom: 0.75rem;
-            margin-top: 0.5rem;
-            line-height: 1.2;
+            font-family: 'Heebo', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: white;
+            margin: 0;
+            line-height: 1.3;
+            text-shadow: 0 2px 15px rgba(0, 0, 0, 0.3);
+            letter-spacing: -0.02em;
           }
 
           .lesson-details {
             width: 100%;
-            background: rgba(255, 255, 255, 0.5);
-            border-radius: 10px;
-            padding: 0.75rem 0.5rem;
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 20px;
+            padding: 1.25rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
             margin-top: auto;
           }
 
           .detail-item {
+            font-family: 'Heebo', sans-serif;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 0.4rem;
-            padding: 0.3rem 0;
-            color: #34495e;
-            font-size: 0.9rem;
-            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 0.75rem;
+            padding: 0.5rem 0;
+            color: white;
+            font-size: 1rem;
+            font-weight: 500;
           }
 
           .detail-item i {
-            color: #3498db;
-            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.1rem;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
           }
 
           .checked-in .detail-item i {
-            color: #27ae60;
+            color: rgba(255, 255, 255, 0.95);
           }
 
           .teacher-status {
+            font-family: 'Heebo', sans-serif;
             display: inline-block;
-            padding: 0.2rem 0.6rem;
-            border-radius: 10px;
-            font-size: 0.75rem;
-            font-weight: 600;
+            padding: 0.3rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
             margin-right: 0.3rem;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
           }
 
           .teacher-status.present {
-            background: #27ae60;
+            background: rgba(39, 174, 96, 0.6);
             color: white;
+            box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
           }
 
           .teacher-status.absent {
-            background: #f39c12;
+            background: rgba(243, 156, 18, 0.6);
             color: white;
+            box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3);
           }
 
           .tap-indicator {
-            margin-top: 0.75rem;
-            padding: 0.6rem;
-            background: linear-gradient(135deg, #3498db, #2980b9);
+            font-family: 'Heebo', sans-serif;
+            margin-top: 0.5rem;
+            padding: 1rem 1.5rem;
+            background: linear-gradient(135deg, rgba(52, 152, 219, 0.6), rgba(41, 128, 185, 0.6));
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
             color: white;
-            border-radius: 10px;
-            font-weight: 600;
+            border-radius: 18px;
+            font-weight: 800;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0.4rem;
-            font-size: 0.95rem;
+            gap: 0.75rem;
+            font-size: 1.1rem;
             width: 100%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+            transition: all 0.3s ease;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
           }
 
           .tap-indicator i {
-            font-size: 1.2rem;
+            font-size: 1.5rem;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+          }
+
+          .student-card.waiting:hover .tap-indicator {
+            background: linear-gradient(135deg, rgba(52, 152, 219, 0.85), rgba(41, 128, 185, 0.85));
+            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.6);
+            transform: scale(1.02);
           }
 
           .bg-gradient-primary {

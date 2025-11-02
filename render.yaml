@@ -9,6 +9,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: TZ
+        value: Asia/Jerusalem
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET
@@ -18,6 +20,8 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: NEXT_PUBLIC_SOCKET_URL
         sync: false
       - key: EMAIL_HOST
         sync: false
