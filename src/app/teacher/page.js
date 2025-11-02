@@ -58,8 +58,9 @@ export default function TeacherDashboard() {
       // Fetch today's lessons
       const today = new Date().toISOString().split('T')[0];
       const todayRes = await fetch(`/api/lessons?teacherId=me&date=${today}`);
+      let todayData = [];
       if (todayRes.ok) {
-        const todayData = await todayRes.json();
+        todayData = await todayRes.json();
         setTodayLessons(Array.isArray(todayData) ? todayData : []);
       }
 
@@ -73,31 +74,28 @@ export default function TeacherDashboard() {
       }
 
       // Check for unconfirmed lessons (lessons that ended but status is still scheduled/in_progress)
-      if (todayRes.ok) {
-        const todayData = await todayRes.json();
-        const now = new Date();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
 
-        const unconfirmed = (Array.isArray(todayData) ? todayData : []).filter(lesson => {
-          // Only check lessons that are scheduled or in_progress
-          if (lesson.status !== 'scheduled' && lesson.status !== 'in_progress') {
-            return false;
-          }
-
-          // Check if lesson has ended
-          const [endHour, endMinute] = lesson.endTime.split(':').map(Number);
-          const lessonEnded = currentHour > endHour || (currentHour === endHour && currentMinute >= endMinute);
-
-          return lessonEnded;
-        });
-
-        setUnconfirmedLessons(unconfirmed);
-
-        // Show modal if there are unconfirmed lessons
-        if (unconfirmed.length > 0) {
-          setShowConfirmModal(true);
+      const unconfirmed = (Array.isArray(todayData) ? todayData : []).filter(lesson => {
+        // Only check lessons that are scheduled or in_progress
+        if (lesson.status !== 'scheduled' && lesson.status !== 'in_progress') {
+          return false;
         }
+
+        // Check if lesson has ended
+        const [endHour, endMinute] = lesson.endTime.split(':').map(Number);
+        const lessonEnded = currentHour > endHour || (currentHour === endHour && currentMinute >= endMinute);
+
+        return lessonEnded;
+      });
+
+      setUnconfirmedLessons(unconfirmed);
+
+      // Show modal if there are unconfirmed lessons
+      if (unconfirmed.length > 0) {
+        setShowConfirmModal(true);
       }
     } catch (err) {
       setError('שגיאה בטעינת נתונים');
