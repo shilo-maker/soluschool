@@ -207,10 +207,36 @@ export default function StudentCheckInPage() {
   // Show lessons after successful check-in
   if (studentInfo) {
     return (
-      <div className="min-vh-100 d-flex align-items-center justify-content-center bg-gradient-primary py-4" dir="rtl">
-        <div className="container-fluid px-3 px-md-4">
-          <div className="card shadow-lg border-0 rounded-4 mx-auto" style={{ maxWidth: '900px' }}>
-            <div className="card-body p-4 p-md-5 text-center">
+      <div className="min-vh-100 d-flex align-items-center justify-content-center py-4 animated-gradient" dir="rtl" style={{
+        position: 'relative',
+        overflow: 'hidden',
+        fontFamily: 'Heebo, sans-serif'
+      }}>
+        {/* Animated background shapes */}
+        <div style={{
+          position: 'absolute',
+          width: '500px',
+          height: '500px',
+          background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)',
+          borderRadius: '50%',
+          top: '-100px',
+          right: '-100px',
+          animation: 'float 6s ease-in-out infinite'
+        }}></div>
+        <div style={{
+          position: 'absolute',
+          width: '400px',
+          height: '400px',
+          background: 'radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)',
+          borderRadius: '50%',
+          bottom: '-150px',
+          left: '-150px',
+          animation: 'float 8s ease-in-out infinite reverse'
+        }}></div>
+
+        <div className="container-fluid px-3 px-md-4" style={{ position: 'relative', zIndex: 1 }}>
+          <div className="glass-success-card mx-auto" style={{ maxWidth: '900px' }}>
+            <div className="p-4 p-md-5 text-center">
               {/* Success Animation */}
               <div className="mb-4">
                 <div className="success-checkmark" style={{ transform: 'scale(1.3)' }}>
@@ -223,53 +249,107 @@ export default function StudentCheckInPage() {
                 </div>
               </div>
 
-              <h1 className="display-3 fw-bold text-success mb-4">
+              <h1 className="display-3 fw-bold mb-4" style={{
+                color: 'white',
+                textShadow: '0 3px 20px rgba(0, 0, 0, 0.3)',
+                fontFamily: 'Heebo, sans-serif',
+                fontWeight: '900'
+              }}>
                 !שלום {studentInfo.name}
               </h1>
 
               {message && (
-                <div className={`alert alert-${message.type === 'success' ? 'success' : 'danger'} mb-4 fs-4`}>
+                <div className="mb-4 py-3 px-4" style={{
+                  background: message.type === 'success'
+                    ? 'rgba(39, 174, 96, 0.3)'
+                    : 'rgba(231, 76, 60, 0.3)',
+                  backdropFilter: 'blur(15px)',
+                  WebkitBackdropFilter: 'blur(15px)',
+                  borderRadius: '20px',
+                  fontSize: '1.3rem',
+                  color: 'white',
+                  fontWeight: '600',
+                  border: '2px solid rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)',
+                  textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                  fontFamily: 'Heebo, sans-serif'
+                }}>
                   {message.text}
                 </div>
               )}
 
               {todaysLessons.length > 0 ? (
                 <>
-                  <h2 className="mb-4 fs-2">השיעורים שלך להיום:</h2>
+                  <h2 className="mb-4 fs-2" style={{
+                    color: 'white',
+                    fontWeight: '800',
+                    textShadow: '0 2px 15px rgba(0, 0, 0, 0.3)',
+                    fontFamily: 'Heebo, sans-serif'
+                  }}>השיעורים שלך להיום:</h2>
                   <div className="row g-3 g-md-4">
                     {todaysLessons.map(lesson => (
                       <div key={lesson.id} className="col-12 col-md-6">
-                        <div className={`card h-100 border-3 ${lesson.checkedIn ? 'border-success bg-success bg-opacity-10' : 'border-primary'} position-relative`}>
+                        <div className={`glass-lesson-card h-100 position-relative ${lesson.checkedIn ? 'checked-in' : ''}`}>
                           {lesson.checkedIn && (
                             <div className="position-absolute top-0 end-0 m-3">
-                              <div className="badge bg-success fs-5 px-3 py-2">
-                                <i className="bi bi-check-circle-fill me-1"></i>
+                              <div className="glass-badge-success">
+                                <i className="bi bi-check-circle-fill me-2"></i>
                                 נוכחות נרשמה
                               </div>
                             </div>
                           )}
-                          <div className="card-body p-4">
-                            <h3 className="card-title mb-3">{lesson.instrument}</h3>
-                            <p className="mb-2 fs-5">
-                              <strong>מורה:</strong> {lesson.teacher}
+                          <div className="p-4">
+                            <h3 className="mb-3" style={{
+                              fontSize: '1.75rem',
+                              fontWeight: '800',
+                              color: 'white',
+                              textShadow: '0 2px 10px rgba(0, 0, 0, 0.3)',
+                              fontFamily: 'Heebo, sans-serif'
+                            }}>{lesson.instrument}</h3>
+                            <p className="mb-2" style={{
+                              fontSize: '1.1rem',
+                              color: 'white',
+                              fontWeight: '500',
+                              fontFamily: 'Heebo, sans-serif'
+                            }}>
+                              <strong style={{ fontWeight: '700' }}>מורה:</strong> {lesson.teacher}
                             </p>
-                            <p className="mb-2 fs-5">
-                              <strong>חדר:</strong> {lesson.room}
+                            <p className="mb-2" style={{
+                              fontSize: '1.1rem',
+                              color: 'white',
+                              fontWeight: '500',
+                              fontFamily: 'Heebo, sans-serif'
+                            }}>
+                              <strong style={{ fontWeight: '700' }}>חדר:</strong> {lesson.room}
                             </p>
-                            <p className="mb-3 fs-5">
-                              <strong>שעה:</strong> {lesson.startTime}
+                            <p className="mb-3" style={{
+                              fontSize: '1.1rem',
+                              color: 'white',
+                              fontWeight: '500',
+                              fontFamily: 'Heebo, sans-serif'
+                            }}>
+                              <strong style={{ fontWeight: '700' }}>שעה:</strong> {lesson.startTime}
                             </p>
 
                             {lesson.checkedIn ? (
                               <div className="text-center py-3">
-                                <i className="bi bi-check-circle-fill text-success" style={{ fontSize: '4rem' }}></i>
-                                <p className="text-success fw-bold mt-3 mb-0 fs-5">
+                                <i className="bi bi-check-circle-fill" style={{
+                                  fontSize: '4rem',
+                                  color: 'rgba(39, 174, 96, 1)',
+                                  filter: 'drop-shadow(0 4px 15px rgba(39, 174, 96, 0.5))'
+                                }}></i>
+                                <p className="fw-bold mt-3 mb-0" style={{
+                                  fontSize: '1.2rem',
+                                  color: 'white',
+                                  textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                                  fontFamily: 'Heebo, sans-serif'
+                                }}>
                                   ✓ נוכחות נרשמה בהצלחה
                                 </p>
                               </div>
                             ) : (
                               <button
-                                className="btn btn-primary btn-lg w-100 py-3 fs-5"
+                                className="glass-checkin-button w-100"
                                 onClick={() => handleLessonCheckIn(lesson.id)}
                                 disabled={loading}
                               >
@@ -284,14 +364,26 @@ export default function StudentCheckInPage() {
                   </div>
                 </>
               ) : (
-                <div className="alert alert-info fs-4 py-3">
+                <div className="py-4 px-4" style={{
+                  background: 'rgba(52, 152, 219, 0.3)',
+                  backdropFilter: 'blur(15px)',
+                  WebkitBackdropFilter: 'blur(15px)',
+                  borderRadius: '20px',
+                  fontSize: '1.3rem',
+                  color: 'white',
+                  fontWeight: '600',
+                  border: '2px solid rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)',
+                  textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                  fontFamily: 'Heebo, sans-serif'
+                }}>
                   <i className="bi bi-info-circle me-2"></i>
                   אין לך שיעורים להיום
                 </div>
               )}
 
               <button
-                className="btn btn-outline-secondary btn-lg mt-4 py-3 fs-4 px-5"
+                className="glass-back-button-success mt-4"
                 onClick={resetCheckIn}
               >
                 <i className="bi bi-arrow-right me-2"></i>
@@ -302,6 +394,124 @@ export default function StudentCheckInPage() {
         </div>
 
         <style jsx>{`
+          @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+          }
+
+          @keyframes gradientMove {
+            0% {
+              background-position: 0% 50%;
+            }
+            50% {
+              background-position: 100% 50%;
+            }
+            100% {
+              background-position: 0% 50%;
+            }
+          }
+
+          :global(.animated-gradient) {
+            background: linear-gradient(135deg, #667eea, #764ba2, #f093fb, #667eea);
+            background-size: 400% 400%;
+            animation: gradientMove 15s ease infinite;
+          }
+
+          .glass-success-card {
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border-radius: 32px;
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
+            font-family: 'Heebo, sans-serif';
+          }
+
+          .glass-badge-success {
+            font-family: 'Heebo, sans-serif';
+            background: rgba(39, 174, 96, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border-radius: 20px;
+            font-size: 1rem;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+          }
+
+          .glass-lesson-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border-radius: 24px;
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            font-family: 'Heebo, sans-serif';
+          }
+
+          .glass-lesson-card.checked-in {
+            background: rgba(39, 174, 96, 0.2);
+            border-color: rgba(39, 174, 96, 0.5);
+          }
+
+          .glass-lesson-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.25);
+          }
+
+          .glass-checkin-button {
+            font-family: 'Heebo, sans-serif';
+            background: linear-gradient(135deg, rgba(52, 152, 219, 0.7), rgba(41, 128, 185, 0.7));
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            padding: 1rem 1.5rem;
+            color: white;
+            font-weight: 700;
+            font-size: 1.15rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+          }
+
+          .glass-checkin-button:hover {
+            background: linear-gradient(135deg, rgba(52, 152, 219, 0.9), rgba(41, 128, 185, 0.9));
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.6);
+          }
+
+          .glass-checkin-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+          }
+
+          .glass-back-button-success {
+            font-family: 'Heebo, sans-serif';
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 18px;
+            padding: 1rem 2.5rem;
+            color: white;
+            font-weight: 700;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+          }
+
+          .glass-back-button-success:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+          }
+
           .bg-gradient-primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           }
@@ -548,51 +758,83 @@ export default function StudentCheckInPage() {
   // Swipe to Confirm Screen
   if (checkInMethod === 'visual' && selectedStudent) {
     return (
-      <div className="min-vh-100 d-flex align-items-center" dir="rtl" style={{ background: '#f8f9fa' }}>
-        <div className="container-fluid px-3 px-md-4">
-          <div className="card shadow-lg border-0 rounded-4 position-relative mx-auto" style={{ maxWidth: '500px' }}>
+      <div className="min-vh-100 d-flex align-items-center animated-gradient" dir="rtl" style={{
+        fontFamily: 'Heebo, sans-serif',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        {/* Animated background shapes */}
+        <div style={{
+          position: 'absolute',
+          width: '500px',
+          height: '500px',
+          background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)',
+          borderRadius: '50%',
+          top: '-100px',
+          right: '-100px',
+          animation: 'float 6s ease-in-out infinite'
+        }}></div>
+
+        <div className="container-fluid px-3 px-md-4" style={{ position: 'relative', zIndex: 1 }}>
+          <div className="glass-confirm-card position-relative mx-auto" style={{ maxWidth: '600px' }}>
             {/* Loading Overlay */}
             {loading && (
-              <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-white bg-opacity-90 rounded-4" style={{ zIndex: 1000 }}>
+              <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center rounded-4" style={{
+                zIndex: 1000,
+                background: 'rgba(255, 255, 255, 0.15)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)'
+              }}>
                 <div className="text-center">
-                  <div className="spinner-border text-primary mb-2" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
+                  <div className="spinner-border mb-3" role="status" style={{ width: '3rem', height: '3rem', color: 'white' }}>
                     <span className="visually-hidden">Loading...</span>
                   </div>
-                  <p className="text-primary mb-0">...מאמת נוכחות</p>
+                  <p className="mb-0" style={{ color: 'white', fontWeight: '600', fontSize: '1.2rem' }}>...מאמת נוכחות</p>
                 </div>
               </div>
             )}
 
-            <div className="card-body p-4">
-              <div className="text-center mb-3">
-                <h2 className="fw-bold mb-2" style={{ fontSize: '1.75rem', color: '#2c3e50' }}>
+            <div className="p-4 p-md-5">
+              <div className="text-center mb-4">
+                <h2 className="fw-bold mb-3" style={{
+                  fontSize: '2.5rem',
+                  color: 'white',
+                  textShadow: '0 2px 15px rgba(0, 0, 0, 0.3)',
+                  fontFamily: 'Heebo, sans-serif',
+                  fontWeight: '900'
+                }}>
                   {selectedStudent.firstName} {selectedStudent.lastName}
                 </h2>
                 {selectedStudent.nextLesson && (
-                  <div style={{ fontSize: '0.95rem', color: '#7f8c8d' }}>
-                    <div className="mb-1">
-                      <i className="bi bi-clock-fill me-2"></i>
-                      {selectedStudent.nextLesson.startTime}
+                  <div className="glass-lesson-info mb-4">
+                    <div className="lesson-info-item">
+                      <i className="bi bi-clock-fill"></i>
+                      <span>{selectedStudent.nextLesson.startTime}</span>
                     </div>
-                    <div className="mb-1">
-                      <i className="bi bi-door-closed-fill me-2"></i>
-                      {selectedStudent.nextLesson.room} - {selectedStudent.nextLesson.instrument}
+                    <div className="lesson-info-item">
+                      <i className="bi bi-door-closed-fill"></i>
+                      <span>{selectedStudent.nextLesson.room} - {selectedStudent.nextLesson.instrument}</span>
                     </div>
-                    <div>
-                      <i className="bi bi-person-badge-fill me-2"></i>
-                      {selectedStudent.nextLesson.teacher}
+                    <div className="lesson-info-item">
+                      <i className="bi bi-person-badge-fill"></i>
+                      <span>{selectedStudent.nextLesson.teacher}</span>
                       {selectedStudent.nextLesson.teacherCheckedIn ? (
-                        <span className="badge bg-success ms-2" style={{ fontSize: '0.75rem' }}>הגיע</span>
+                        <span className="teacher-badge success">הגיע</span>
                       ) : (
-                        <span className="badge bg-warning text-dark ms-2" style={{ fontSize: '0.75rem' }}>לא הגיע</span>
+                        <span className="teacher-badge warning">לא הגיע</span>
                       )}
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="mb-3">
-                <p className="text-center mb-2 fw-semibold" style={{ color: '#34495e', fontSize: '1rem' }}>
+              <div className="mb-4">
+                <p className="text-center mb-3 fw-bold" style={{
+                  color: 'white',
+                  fontSize: '1.3rem',
+                  textShadow: '0 2px 10px rgba(0, 0, 0, 0.2)',
+                  fontFamily: 'Heebo, sans-serif'
+                }}>
                   החלק לאישור נוכחות
                 </p>
 
@@ -621,13 +863,12 @@ export default function StudentCheckInPage() {
               </div>
 
               <button
-                className="btn btn-outline-secondary w-100"
+                className="glass-back-button w-100"
                 onClick={() => {
                   setSelectedStudent(null);
                   setSwipePosition(0);
                 }}
                 disabled={loading}
-                style={{ borderRadius: '10px', padding: '0.6rem' }}
               >
                 <i className="bi bi-arrow-right me-2"></i>
                 חזרה
@@ -637,6 +878,92 @@ export default function StudentCheckInPage() {
         </div>
 
         <style jsx>{`
+          @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+          }
+
+          @keyframes gradientMove {
+            0% {
+              background-position: 0% 50%;
+            }
+            50% {
+              background-position: 100% 50%;
+            }
+            100% {
+              background-position: 0% 50%;
+            }
+          }
+
+          :global(.animated-gradient) {
+            background: linear-gradient(135deg, #667eea, #764ba2, #f093fb, #667eea);
+            background-size: 400% 400%;
+            animation: gradientMove 15s ease infinite;
+          }
+
+          .glass-confirm-card {
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border-radius: 32px;
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
+            font-family: 'Heebo', sans-serif;
+          }
+
+          .glass-lesson-info {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 1.25rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+          }
+
+          .lesson-info-item {
+            font-family: 'Heebo', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 0.75rem;
+            padding: 0.6rem 0;
+            color: white;
+            font-size: 1.05rem;
+            font-weight: 500;
+          }
+
+          .lesson-info-item i {
+            color: rgba(255, 255, 255, 0.95);
+            font-size: 1.2rem;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+          }
+
+          .teacher-badge {
+            font-family: 'Heebo', sans-serif;
+            display: inline-block;
+            padding: 0.35rem 0.85rem;
+            border-radius: 14px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-right: 0.4rem;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+          }
+
+          .teacher-badge.success {
+            background: rgba(39, 174, 96, 0.7);
+            color: white;
+            box-shadow: 0 3px 10px rgba(39, 174, 96, 0.35);
+          }
+
+          .teacher-badge.warning {
+            background: rgba(243, 156, 18, 0.7);
+            color: white;
+            box-shadow: 0 3px 10px rgba(243, 156, 18, 0.35);
+          }
+
           .swipe-container {
             padding: 0;
             user-select: none;
@@ -646,11 +973,14 @@ export default function StudentCheckInPage() {
 
           .swipe-track {
             position: relative;
-            height: 70px;
-            background: linear-gradient(90deg, #e9ecef 0%, #27ae60 100%);
-            border-radius: 35px;
+            height: 75px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 40px;
             overflow: hidden;
-            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), inset 0 2px 10px rgba(255, 255, 255, 0.1);
           }
 
           .swipe-text {
@@ -658,37 +988,72 @@ export default function StudentCheckInPage() {
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #7f8c8d;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: white;
             pointer-events: none;
             z-index: 1;
+            font-family: 'Heebo', sans-serif;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
           }
 
           .swipe-slider {
             position: absolute;
-            top: 4px;
-            left: 4px;
-            width: 62px;
-            height: 62px;
-            background: linear-gradient(135deg, #3498db, #2980b9);
-            border-radius: 31px;
+            top: 5px;
+            left: 5px;
+            width: 65px;
+            height: 65px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.75));
+            border-radius: 35px;
             cursor: grab;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-size: 1.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            color: #667eea;
+            font-size: 1.6rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
             transition: box-shadow 0.2s ease;
             z-index: 2;
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.5);
           }
 
           .swipe-slider:active {
             cursor: grabbing;
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35);
+          }
+
+          .glass-back-button {
+            font-family: 'Heebo', sans-serif;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            padding: 0.85rem 1.5rem;
+            color: white;
+            font-weight: 600;
+            font-size: 1.05rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+          }
+
+          .glass-back-button:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.18);
+            border-color: rgba(255, 255, 255, 0.4);
+          }
+
+          .glass-back-button:active {
+            transform: translateY(0);
+          }
+
+          .glass-back-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
           }
         `}</style>
       </div>
@@ -698,8 +1063,7 @@ export default function StudentCheckInPage() {
   // Visual Student Selector
   if (checkInMethod === 'visual') {
     return (
-      <div className="min-vh-100 py-4" dir="rtl" style={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
+      <div className="min-vh-100 py-4 animated-gradient" dir="rtl" style={{
         position: 'relative',
         overflow: 'hidden',
         fontFamily: 'Heebo, sans-serif'
@@ -903,6 +1267,24 @@ export default function StudentCheckInPage() {
               opacity: 1;
               transform: translateY(0);
             }
+          }
+
+          @keyframes gradientMove {
+            0% {
+              background-position: 0% 50%;
+            }
+            50% {
+              background-position: 100% 50%;
+            }
+            100% {
+              background-position: 0% 50%;
+            }
+          }
+
+          :global(.animated-gradient) {
+            background: linear-gradient(135deg, #667eea, #764ba2, #f093fb, #667eea);
+            background-size: 400% 400%;
+            animation: gradientMove 15s ease infinite;
           }
 
           .glass-header {
