@@ -353,7 +353,7 @@ export async function GET(request) {
           gte: today,
           lt: tomorrow
         },
-        status: 'scheduled',
+        status: { in: ['scheduled', 'in_progress'] },
         OR: [
           // Upcoming lessons within 60 minutes
           {
