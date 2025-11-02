@@ -37,12 +37,14 @@ async function debugStudentCheckIn() {
     console.log(`   Maximum Time: ${maxTime}`);
     console.log(`   (Shows lessons starting within next 60 minutes)\n`);
 
-    // Find the student
+    // Find the student - search by partial name match
     const student = await prisma.student.findFirst({
       where: {
         user: {
-          firstName: 'בדיקה',
-          lastName: 'בדיקה'
+          OR: [
+            { firstName: { contains: 'בדיקה' } },
+            { lastName: { contains: 'בדיקה' } }
+          ]
         }
       },
       include: {
@@ -58,7 +60,7 @@ async function debugStudentCheckIn() {
     });
 
     if (!student) {
-      console.log('❌ Student "בדיקה בדיקה" not found!\n');
+      console.log('❌ Student with "בדיקה" in name not found!\n');
 
       // Show all students
       console.log('📋 All Students in Database:');
@@ -224,7 +226,7 @@ async function debugStudentCheckIn() {
     });
 
     const ourStudentInList = relevantLessons.some(l => l.studentId === student.id);
-    console.log(`\n   ${ourStudentInList ? '✅' : '❌'} "בדיקה בדיקה" ${ourStudentInList ? 'IS' : 'IS NOT'} in the list\n`);
+    console.log(`\n   ${ourStudentInList ? '✅' : '❌'} "${student.user.firstName} ${student.user.lastName}" ${ourStudentInList ? 'IS' : 'IS NOT'} in the list\n`);
 
   } catch (error) {
     console.error('❌ Error:', error);
