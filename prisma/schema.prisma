@@ -1,0 +1,458 @@
+// Prisma Schema for SOLU Music School Management System
+// PostgreSQL Database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// ENUMS
+// ========================================
+
+enum UserRole {
+  admin
+  teacher
+  student
+  sponsor
+}
+
+enum Language {
+  en
+  he
+}
+
+enum InstrumentLevel {
+  beginner
+  intermediate
+  advanced
+}
+
+enum DayOfWeek {
+  sunday
+  monday
+  tuesday
+  wednesday
+  thursday
+  friday
+  saturday
+}
+
+enum LessonStatus {
+  scheduled
+  in_progress
+  completed
+  cancelled
+  no_show
+}
+
+enum PaymentMethod {
+  cash
+  credit_card
+  bank_transfer
+  check
+  other
+}
+
+enum PaymentStatus {
+  pending
+  completed
+  failed
+  refunded
+}
+
+enum Currency {
+  ILS
+  USD
+  EUR
+}
+
+enum BillingStatus {
+  pending
+  approved
+  paid
+}
+
+enum AbsenceStatus {
+  pending
+  coverage_needed
+  partially_covered
+  fully_covered
+  cancelled
+}
+
+enum SubstituteStatus {
+  pending
+  substitute_suggested
+  awaiting_approval
+  approved
+  declined
+  completed
+  cancelled
+}
+
+// ========================================
+// MODELS
+// ========================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  googleId      String?  @unique
+  pin           String?  // Hashed 4-digit alphanumeric PIN
+  pinPlainText  String?  // Unhashed PIN for user reference
+  password      String?  // Hashed password
+  qrCode        String?  @unique
+  role          UserRole @default(student)
+  firstName     String
+  lastName      String
+  phone         String?
+  language      Language @default(he)
+  isActive      Boolean  @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  student                Student?
+  teacher                Teacher?
+  recordedPayments       Payment[] @relation("RecordedPayments")
+  cancelledLessons       Lesson[] @relation("CancelledLessons")
+  reportedAbsences       TeacherAbsence[] @relation("ReportedAbsences")
+  approvedSubstitutes    SubstituteRequest[] @relation("ApprovedSubstitutes")
+
+  @@index([email])
+  @@index([role, isActive])
+  @@index([pin])
+  @@index([qrCode])
+}
+
+model Student {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  instruments   Json     // Array of { instrument, level, teacherId }
+  parentName    String?
+  parentPhone   String?
+  parentEmail   String?
+  notes         String?  @db.Text
+
+  soluSubsidy   Float    @default(20)
+  additionalSubsidy Json @default("{\"hasSubsidy\": false, \"subsidyPerLesson\": 0, \"subsidizerId\": null}")
+
+  stats         Json     @default("{\"totalLessons\": 0, \"attendanceRate\": 0}")
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  lessons       Lesson[]
+  schedules     Schedule[]
+  payments      Payment[]
+  substituteRequests SubstituteRequest[]
+
+  @@index([userId])
+}
+
+model Teacher {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  instruments   String[] // Array of instrument names
+  lessonRate    Float    @default(80)
+  bio           String?  @db.Text
+  availability  Json     @default("[]") // Array of { day, startTime, endTime }
+
+  stats         Json     @default("{\"totalLessons\": 0, \"totalStudents\": 0}")
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  lessons       Lesson[]
+  schedules     Schedule[]
+  billings      Billing[]
+  absences      TeacherAbsence[]
+  originalSubstitutes SubstituteRequest[] @relation("OriginalTeacher")
+  substituteLessons   SubstituteRequest[] @relation("SubstituteTeacher")
+
+  @@index([userId])
+  @@index([instruments])
+}
+
+model Room {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  number        String
+  capacity      Int      @default(2)
+  equipment     String[] @default([])
+  isActive      Boolean  @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  lessons       Lesson[]
+  schedules     Schedule[]
+  substituteRequests SubstituteRequest[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model Lesson {
+  id            String   @id @default(cuid())
+  teacherId     String
+  teacher       Teacher  @relation(fields: [teacherId], references: [id])
+
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id])
+
+  roomId        String
+  room          Room     @relation(fields: [roomId], references: [id])
+
+  instrument    String
+  date          DateTime
+  startTime     String   // Format: "HH:MM"
+  endTime       String   // Format: "HH:MM"
+  duration      Int      @default(35) // Duration in minutes
+  status        LessonStatus @default(scheduled)
+
+  // Check-in/out timestamps
+  teacherCheckIn  DateTime?
+  studentCheckIn  DateTime?
+  teacherCheckOut DateTime?
+  studentCheckOut DateTime?
+
+  // Notes and cancellation
+  teacherNotes      String?  @db.Text
+  cancellationReason String?
+  cancelledById     String?
+  cancelledBy       User?    @relation("CancelledLessons", fields: [cancelledById], references: [id])
+
+  // Notification flags
+  reminderSent      Boolean  @default(false)
+  dailySummarySent  Boolean  @default(false)
+
+  // Payment tracking
+  studentPaid       Boolean  @default(false)
+  soluPaid          Boolean  @default(false)
+  subsidizerPaid    Boolean  @default(false)
+  studentPaidAt     DateTime?
+  soluPaidAt        DateTime?
+  subsidizerPaidAt  DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  substituteRequests SubstituteRequest[]
+
+  @@index([date, startTime])
+  @@index([teacherId, date])
+  @@index([studentId, date])
+  @@index([roomId, date])
+  @@index([status])
+  @@index([date, status])
+}
+
+model Schedule {
+  id            String   @id @default(cuid())
+  teacherId     String
+  teacher       Teacher  @relation(fields: [teacherId], references: [id])
+
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id])
+
+  roomId        String
+  room          Room     @relation(fields: [roomId], references: [id])
+
+  instrument    String
+  dayOfWeek     Int      // 0=Sunday, 1=Monday, ..., 6=Saturday
+  startTime     String   // Format: "HH:MM"
+  endTime       String   // Format: "HH:MM"
+  duration      Int      @default(35) // Duration in minutes
+
+  effectiveFrom DateTime
+  effectiveUntil DateTime?
+  isActive      Boolean  @default(true)
+  notes         String?  @db.Text
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([dayOfWeek, startTime])
+  @@index([teacherId])
+  @@index([studentId])
+  @@index([roomId])
+  @@index([isActive])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id])
+
+  amount        Float
+  currency      Currency @default(ILS)
+  paymentMethod PaymentMethod @default(cash)
+  paymentDate   DateTime @default(now())
+
+  periodStart   DateTime
+  periodEnd     DateTime
+
+  status        PaymentStatus @default(completed)
+  invoiceNumber String?  @unique
+  referenceNumber String? // Check number, transaction ID, etc.
+
+  recordedById  String
+  recordedBy    User     @relation("RecordedPayments", fields: [recordedById], references: [id])
+
+  lessonsCount  Int      @default(0)
+  pricePerLesson Float   @default(0)
+  notes         String?  @db.Text
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([studentId, paymentDate])
+  @@index([status])
+  @@index([invoiceNumber])
+}
+
+model Billing {
+  id            String   @id @default(cuid())
+  teacherId     String
+  teacher       Teacher  @relation(fields: [teacherId], references: [id])
+
+  month         Int      // 1-12
+  year          Int
+
+  lessons       Json     @default("[]") // Array of { lessonId, date, duration, studentName, instrument }
+
+  totalLessons  Int      @default(0)
+  totalHours    Float    @default(0)
+  totalAmount   Float    @default(0)
+
+  status        BillingStatus @default(pending)
+  generatedAt   DateTime @default(now())
+  paidAt        DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([teacherId, month, year])
+  @@index([status])
+}
+
+model Subsidizer {
+  id            String   @id @default(cuid())
+  name          String
+  email         String
+  phone         String?
+  notes         String?  @db.Text
+  isActive      Boolean  @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model TeacherAbsence {
+  id            String   @id @default(cuid())
+  teacherId     String
+  teacher       Teacher  @relation(fields: [teacherId], references: [id])
+
+  startDate     DateTime
+  endDate       DateTime
+  reason        String?  @db.Text
+  status        AbsenceStatus @default(pending)
+
+  reportedById  String
+  reportedBy    User     @relation("ReportedAbsences", fields: [reportedById], references: [id])
+
+  notes         String?  @db.Text
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  substituteRequests SubstituteRequest[]
+
+  @@index([teacherId, startDate, endDate])
+  @@index([status])
+}
+
+model SubstituteRequest {
+  id            String   @id @default(cuid())
+  absenceId     String
+  absence       TeacherAbsence @relation(fields: [absenceId], references: [id])
+
+  lessonId      String
+  lesson        Lesson   @relation(fields: [lessonId], references: [id])
+
+  originalTeacherId String
+  originalTeacher   Teacher @relation("OriginalTeacher", fields: [originalTeacherId], references: [id])
+
+  substituteTeacherId String?
+  substituteTeacher   Teacher? @relation("SubstituteTeacher", fields: [substituteTeacherId], references: [id])
+
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id])
+
+  roomId        String
+  room          Room     @relation(fields: [roomId], references: [id])
+
+  instrument    String
+  lessonDate    DateTime
+  startTime     String
+  endTime       String
+
+  status        SubstituteStatus @default(pending)
+  suggestedSubstitutes Json @default("[]") // Array of { teacherId, reason, score }
+
+  approvedById  String?
+  approvedBy    User?    @relation("ApprovedSubstitutes", fields: [approvedById], references: [id])
+  approvedAt    DateTime?
+
+  notes         String?  @db.Text
+
+  // Broadcast mode - link requests that were sent to multiple teachers for same lesson
+  broadcastGroupId String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([absenceId])
+  @@index([lessonId])
+  @@index([status])
+  @@index([broadcastGroupId])
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  userId        String
+
+  type          String   // "lesson_reminder", "lesson_cancelled", "feedback_added", etc.
+  title         String
+  message       String   @db.Text
+  link          String?  // Optional link to relevant page
+
+  isRead        Boolean  @default(false)
+  readAt        DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}

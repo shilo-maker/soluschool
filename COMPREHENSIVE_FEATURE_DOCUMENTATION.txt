@@ -1,0 +1,4000 @@
+================================================================================
+SOLU MUSIC SCHOOL MANAGEMENT SYSTEM
+COMPREHENSIVE FEATURE DOCUMENTATION
+================================================================================
+
+Generated: 2025-10-30
+System Version: Next.js 15.5.4 / React 19.1.1
+Database: is PostgreSQL better?
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+
+1. SYSTEM OVERVIEW
+2. AUTHENTICATION & SECURITY
+3. USER MANAGEMENT
+4. STUDENT MANAGEMENT
+5. TEACHER MANAGEMENT
+6. LESSON MANAGEMENT
+7. SCHEDULING SYSTEM
+8. CHECK-IN SYSTEM
+9. ROOM MANAGEMENT
+10. LIVE OVERVIEW & REAL-TIME FEATURES
+11. PAYMENT & BILLING SYSTEM
+12. SUBSIDY MANAGEMENT
+13. REPORTING & ANALYTICS
+14. TEACHER ABSENCE & COVERAGE MANAGEMENT
+15. NOTIFICATION SYSTEM
+16. INTERNATIONALIZATION (i18n)
+17. TECHNICAL ARCHITECTURE
+18. API ENDPOINTS
+
+================================================================================
+1. SYSTEM OVERVIEW
+================================================================================
+
+SOLU Music School Management System is a comprehensive web-based platform
+designed to manage all aspects of a music school's operations. The system
+provides features for student and teacher management, lesson scheduling,
+real-time room tracking, billing, reporting, and automated notifications.
+
+Key Characteristics:
+- Full-stack Next.js 15 application with App Router
+- Real-time updates via Socket.io
+- Mobile-first responsive design
+- Bilingual support (English/Hebrew with RTL, and the Hebrew is default)
+- Role-based access control (Admin, Teacher, Student)
+- Automated workflows and notifications
+- Comprehensive reporting and analytics
+
+================================================================================
+2. AUTHENTICATION & SECURITY
+================================================================================
+
+2.1 MULTI-METHOD AUTHENTICATION
+--------------------------------
+The system supports three authentication methods:
+
+A) EMAIL & PASSWORD LOGIN
+   - Traditional authentication for administrators and teachers
+   - Email validation and password hashing with bcryptjs
+   - Secure password storage with salt rounds
+   - Login endpoint: /api/auth/login
+
+B) 4-DIGIT Alpha numerical PIN AUTHENTICATION
+   - Quick check-in for students and teachers
+   - Each user receives a unique 4-digit PIN
+   - PIN is hashed and stored securely
+   - Plain-text PIN backup (pinPlainText) for user reference
+   - Login endpoint: /api/auth/pin
+
+C) QR CODE AUTHENTICATION
+   - Each student and teacher has a unique QR code
+   - QR codes generated server-side using 'qrcode' library
+   - Can be scanned for instant check-in
+   - QR codes displayed on user profiles
+   - Download/print capability for physical cards
+   - QR generation endpoints:
+     * /api/students/[id]/qr
+     * /api/teachers/[id]/qr
+
+2.2 JWT-BASED SESSION MANAGEMENT
+---------------------------------
+- JSON Web Tokens (JWT) for stateless authentication
+- Tokens stored in HTTP-only cookies for security
+- Token includes user ID, email, role, and name
+- Automatic token validation on protected routes
+- Logout functionality clears JWT cookie
+- Token secret from environment variable (JWT_SECRET)
+
+2.3 ROLE-BASED ACCESS CONTROL (RBAC)
+-------------------------------------
+Three primary roles:
+- ADMIN: Full system access, can manage all entities
+- TEACHER: Can view schedules, mark attendance, add notes
+- STUDENT: Can check in, view own schedule and lessons
+- SPONSOR: Can view reports of the money he needs to give, and the lessons that were taken
+
+Protected routes check user role before allowing access:
+- Dashboard (/dashboard) - Admin only
+- Admin panel (/admin) - Admin only
+- Reports (/reports) - Admin only
+- Coverage management (/coverage) - Admin only
+- Live overview (/live) - All authenticated users
+- Check-in (/checkin) - Student users (including unauthenticated) and teachers(authenricated)
+
+2.4 SECURITY FEATURES
+---------------------
+- Password hashing using bcryptjs (10 salt rounds)
+- ALPHA NUMERICAL PIN hashing using bcryptjs (10 salt rounds)
+- Environment variables for sensitive data
+- CORS configuration for Socket.io
+- Input validation on all forms
+- SQL injection prevention
+- XSS prevention via React's built-in escaping
+
+================================================================================
+3. USER MANAGEMENT
+================================================================================
+
+3.1 USER MODEL STRUCTURE
+-------------------------
+The User model is the core authentication entity and includes:
+
+Fields:
+- email: Unique, required, lowercase
+- googleId: For future Google OAuth integration (optional)
+- pin: Hashed 4-digit PIN for quick authentication
+- pinPlainText: Unhashed PIN for reference (can be shown to user)
+- password: Hashed password for email/password login
+- qrCode: Unique QR code string for QR authentication
+- role: Enum ('admin', 'teacher', 'student', 'sponsor')
+- firstName: Required
+- lastName: Required
+- phone: Optional contact number
+- language: Preferred language ('en' or 'he')
+- isActive: Boolean flag for soft deletion
+- timestamps: createdAt, updatedAt
+
+Methods:
+- comparePin(candidatePin): Validates PIN against hashed version
+- comparePassword(candidatePassword): Validates password
+- getFullName(): Returns "firstName lastName"
+
+3.2 USER CREATION & MANAGEMENT
+-------------------------------
+- Admin can create users via admin interface
+- Automatic PIN generation (4-digit alpha numerical random)
+- Automatic QR code generation (unique string)
+- Password must be set for admin users
+- Users can be deactivated (isActive = false) instead of deleted
+- Email addresses must be unique across the system
+
+3.3 PIN MANAGEMENT
+------------------
+- PIN Reset functionality available for students, teachers and sponsors
+- Reset generates a new random 4-digit PIN
+- PIN reset sends email notification to user
+- PIN retrieval endpoint: /api/students/[id]/get-pin
+- PIN reset endpoint: /api/students/[id]/reset-pin
+- Teachers have equivalent endpoints: /api/teachers/[id]/get-pin
+- Sponsors have equivalent endpoints: /api/sponsors/[id]/get-pin
+
+3.4 PROFILE MANAGEMENT
+----------------------
+- Users can update personal information
+- Language preference saved per user
+- Phone number and email can be updated
+- Admin can update any user's information
+- Users cannot change their own role
+
+================================================================================
+4. STUDENT MANAGEMENT
+================================================================================
+
+4.1 STUDENT PROFILE
+-------------------
+The Student model extends User with education-specific fields:
+
+Core Fields:
+- userId: Reference to User model (required)
+- instruments: Array of instrument objects
+  * instrument: String (e.g., "Piano", "Guitar")
+  * level: Enum ('beginner', 'intermediate', 'advanced')
+  * teacherId: Reference to assigned teacher
+- parentName: Parent/guardian name (optional)
+- parentPhone: Parent/guardian contact
+- parentEmail: Parent/guardian email
+- notes: General notes about student (max 1000 chars)
+
+4.2 SUBSIDY CONFIGURATION
+--------------------------
+SOLU Subsidy (Standard):
+- soluSubsidy: Always 20 shekels per lesson (default)
+- Applied automatically to all students
+
+Additional Subsidy (Optional):
+- additionalSubsidy.hasSubsidy: Boolean flag
+- additionalSubsidy.subsidyPerLesson: Amount in shekels
+- additionalSubsidy.subsidizerId: Reference to Subsidizer entity
+- Multiple students can share the same subsidizer
+
+4.3 STUDENT STATISTICS
+----------------------
+Tracked automatically:
+- stats.totalLessons: Total completed lessons
+- stats.attendanceRate: Percentage (0-100)
+  * Calculated as: (completed lessons / scheduled lessons) × 100
+  * Updated after each lesson completion
+  * Displayed in reports and student profile
+
+4.4 STUDENT MANAGEMENT FEATURES
+--------------------------------
+Create Student:
+- Add new student with user account creation
+- Assign instruments and proficiency levels
+- Set parent contact information
+- Configure subsidy arrangements
+- Generate PIN and QR code automatically
+
+Update Student:
+- Modify student information
+- Add/remove instruments
+- Change assigned teachers per instrument
+- Update subsidy configuration
+- Edit parent contact details
+
+View Student:
+- Complete profile with all details
+- Lesson history and attendance records
+- Payment history and balance
+- Generated QR code for check-in
+- Current PIN (retrievable)
+
+Delete Student:
+- Soft delete (sets isActive = false)
+- Maintains historical data
+- Can be reactivated if needed
+- Associated lessons remain in system
+
+4.5 STUDENT ENDPOINTS
+---------------------
+- GET /api/students - List all students
+- POST /api/students - Create new student
+- GET /api/students/[id] - Get student details
+- PUT /api/students/[id] - Update student
+- DELETE /api/students/[id] - Deactivate student
+- GET /api/students/[id]/qr - Generate QR code
+- GET /api/students/[id]/get-pin - Retrieve PIN
+- POST /api/students/[id]/reset-pin - Reset PIN
+
+================================================================================
+5. TEACHER MANAGEMENT
+================================================================================
+
+5.1 TEACHER PROFILE
+-------------------
+The Teacher model extends User with teaching-specific fields:
+
+Core Fields:
+- userId: Reference to User model (required)
+- instruments: Array of instrument names (strings)
+  * List of instruments the teacher can teach
+  * Used for substitute teacher matching
+- lessonRate: Rate per lesson in ILS (default: 80)
+- bio: Teacher biography (max 500 chars)
+- availability: Array of weekly availability slots
+  * day: Enum ('sunday' through 'saturday')
+  * startTime: String format "HH:MM"
+  * endTime: String format "HH:MM"
+
+5.2 TEACHER STATISTICS
+-----------------------
+Tracked automatically:
+- stats.totalLessons: Total lessons taught
+- stats.totalStudents: Unique students taught
+- Updated after lesson completion
+- Used in billing and performance reports
+
+5.3 TEACHER AVAILABILITY
+-------------------------
+Purpose: Helps in scheduling and finding substitutes
+
+Configuration:
+- Multiple time slots per day
+- Can span across multiple days
+- Used by substitute matching algorithm
+- Displayed in teacher profile
+- Considered when creating schedules
+
+Example:
+- Sunday: 14:00-18:00
+- Monday: 09:00-13:00, 15:00-19:00
+- Wednesday: 14:00-20:00
+
+5.4 TEACHER MANAGEMENT FEATURES
+--------------------------------
+Create Teacher:
+- Add new teacher with user account
+- Set instruments they can teach
+- Configure lesson rate
+- Set availability schedule
+- Optional bio and hourly rate
+- Auto-generate PIN and QR code
+
+Update Teacher:
+- Modify teacher information
+- Update instruments list
+- Change lesson rate
+- Adjust availability schedule
+- Edit bio
+
+View Teacher:
+- Complete profile
+- List of current students
+- Lesson history
+- Billing summary
+- QR code and PIN
+- Availability schedule
+
+Delete Teacher:
+- Soft delete (isActive = false)
+- Historical data preserved
+- Cannot delete if active lessons exist
+- Lessons remain associated
+
+
+****ALSO ADD SPONSORS Managment****
+
+
+5.5 BILLING CONFIGURATION
+--------------------------
+Per-Lesson Rate: Fixed amount per lesson (default)
+
+Billing Generation:
+- Monthly billing records created automatically
+- Includes all completed lessons
+- Status: pending → approved → paid
+- Detailed lesson breakdown
+- Total amount calculation
+
+5.6 TEACHER ENDPOINTS
+---------------------
+- GET /api/teachers - List all teachers
+- POST /api/teachers - Create new teacher
+- GET /api/teachers/[id] - Get teacher details
+- PUT /api/teachers/[id] - Update teacher
+- DELETE /api/teachers/[id] - Deactivate teacher
+- GET /api/teachers/[id]/qr - Generate QR code
+- GET /api/teachers/[id]/get-pin - Retrieve PIN
+- POST /api/teachers/[id]/reset-pin - Reset PIN
+
+================================================================================
+6. LESSON MANAGEMENT
+================================================================================
+
+6.1 LESSON MODEL
+----------------
+Comprehensive lesson tracking with multiple states and timestamps:
+
+Core Fields:
+- teacherId: Reference to Teacher (required)
+- studentId: Reference to Student (required)
+- roomId: Reference to Room (required)
+- instrument: Instrument being taught (required)
+- date: Date of lesson (required)
+- startTime: Start time string "HH:MM" (required)
+- endTime: End time string "HH:MM" (required)
+- duration: Duration in minutes (default: 35)
+
+Status Management:
+- status: Enum with 5 possible values
+  * 'scheduled': Lesson is planned
+  * 'in-progress': Someone has checked in
+  * 'completed': Lesson finished successfully
+  * 'cancelled': Lesson was cancelled
+  * 'no-show': Student didn't attend
+
+Check-In/Out Tracking:
+- teacherCheckIn: Timestamp when teacher checked in
+- studentCheckIn: Timestamp when student checked in
+- teacherCheckOut: Timestamp when teacher checked out
+- studentCheckOut: Timestamp when student checked out
+
+Additional Fields:
+- teacherNotes: Notes added by teacher (max 1000 chars)
+- cancellationReason: Reason if cancelled
+- cancelledBy: User ID who cancelled
+- reminderSent: Boolean flag for reminder email
+- dailySummarySent: Boolean flag for daily summary email
+
+6.2 LESSON LIFECYCLE
+--------------------
+1. CREATION (status: scheduled)
+   - Created from recurring schedule or manually
+   - Assigned to teacher, student, room
+   - Time and date set
+   - Reminder email can be scheduled
+
+2. REMINDER SENT (24 hours before)
+   - Automated email to teacher and student, if enabled
+   - Includes lesson details, room assignment
+   - reminderSent flag set to true
+
+3. CHECK-IN 
+   - Student or teacher checks in via PIN/QR, or after the student or teacher log is, by pressing on button
+   - Timestamp recorded
+   - Status automatically changes to 'in-progress'
+   - Live overview updated via Socket.io
+   - Check-in allowed up to 60 minutes before lesson
+
+4. LESSON IN PROGRESS
+   - Displayed on live overview screen
+   - Shows who has checked in
+   - Time remaining calculated and displayed
+   - Teacher can add notes during or after
+
+5. AUTO-COMPLETION (after end time)
+   - Cron job runs every 2 minutes
+   - Lessons past end time auto-completed
+   - Status changes to 'completed'
+   - Stats updated for teacher and student
+   - Billing record updated
+
+6. COMPLETION
+   - Can also be manually marked complete
+   - Teacher can add final notes
+   - Student attendance rate updated
+   - Teacher lesson count incremented
+   - Ready for billing
+
+6.3 LESSON OPERATIONS
+---------------------
+Create Lesson:
+- Manual single lesson creation
+- Or generated from recurring schedule
+- Validates teacher/student/room availability
+- Checks for scheduling conflicts
+- Creates lesson record
+
+Update Lesson:
+- Modify time or date
+- Change room assignment
+- Update duration
+- Add teacher notes
+- Cannot change teacher/student once created
+
+Reschedule Lesson:
+- Special operation via /api/lessons/[id]/reschedule
+- Records old date/time
+- Updates to new date/time
+- Sends notification emails if enabled
+- Validates new time slot availability
+
+Cancel Lesson:
+- Set status to 'cancelled'
+- Record cancellation reason
+- Record who cancelled
+- Send notification emails
+- Updates availability
+
+Mark No-Show:
+- Set status to 'no-show'
+- Affects student attendance rate
+- Still billable (configurable)
+- Recorded in reports
+
+Add Notes:
+- Teacher can add notes during/after lesson
+- Endpoint: /api/lessons/[id]/notes
+- Notes viewable by admin and teacher
+- Included in lesson history
+
+6.4 LESSON QUERIES
+------------------
+Filter Options:
+- By date range
+- By teacher
+- By student
+- By room
+- By status
+- By instrument
+
+Special Queries:
+- GET /api/lessons/today - All today's lessons
+- Today's lessons endpoint used by:
+  * Dashboard
+  * Live overview
+  * Check-in system
+
+6.5 CHECK-IN PROCESS
+--------------------
+Endpoint: POST /api/lessons/checkin
+Process:
+1. User checks in with PIN or QR code
+2. System finds upcoming/current lesson (within 60 min window)
+3. Determines if user is teacher or student
+4. Records appropriate check-in timestamp
+5. Changes status to 'in-progress' if first check-in
+6. Broadcasts update via Socket.io
+7. Returns lesson details and room assignment
+
+Check-In Rules:
+- Can check in up to 60 minutes early
+- Cannot check in for past lessons
+- Can only check in for own assigned lessons
+- Both teacher and student can check in independently
+- Live overview shows check-in status in real-time
+
+6.6 AUTO-COMPLETION SYSTEM
+---------------------------
+Purpose: Automatically complete lessons after they end
+
+Implementation:
+- Cron job endpoint: /api/cron/auto-complete
+- Runs every minute (configurable in vercel.json)
+- Finds all lessons:
+  * status = 'in-progress'
+  * endTime has passed
+- Changes status to 'completed'
+- Updates teacher and student statistics
+- Makes room available again
+
+6.7 LESSON ENDPOINTS
+--------------------
+- GET /api/lessons - List/filter lessons
+- POST /api/lessons - Create new lesson
+- GET /api/lessons/[id] - Get lesson details
+- PUT /api/lessons/[id] - Update lesson
+- DELETE /api/lessons/[id] - Cancel lesson
+- POST /api/lessons/[id]/notes - Add teacher notes
+- POST /api/lessons/[id]/reschedule - Reschedule lesson
+- GET /api/lessons/today - Today's lessons
+- POST /api/lessons/auto-complete - Auto-complete endpoint
+- POST /api/lessons/checkin - Check-in endpoint
+
+================================================================================
+7. SCHEDULING SYSTEM
+================================================================================
+
+7.1 SCHEDULE MODEL
+------------------
+Recurring schedule templates for automatic lesson generation:
+
+Core Fields:
+- teacherId: Reference to Teacher (required)
+- studentId: Reference to Student (required)
+- roomId: Reference to Room (required)
+- instrument: Instrument for lessons (required)
+- dayOfWeek: Number 0-6 (0=Sunday, 6=Saturday)
+- startTime: Time string "HH:MM" (required)
+- endTime: Time string "HH:MM" (required)
+- duration: Duration in minutes (default: 35)
+
+Date Range:
+- effectiveFrom: Start date for schedule (required)
+- effectiveUntil: End date (optional, null = indefinite)
+- isActive: Boolean flag to enable/disable
+- Can overlap if needed (e.g., summer schedule change)
+
+Metadata:
+- notes: Notes about the schedule (max 500 chars)
+- timestamps: createdAt, updatedAt
+
+7.2 SCHEDULE CREATION
+---------------------
+Process:
+1. Select teacher, student, instrument
+2. Choose room and time slot
+3. Set day of week
+4. Define effective date range
+5. System validates:
+   - No room conflicts at that time
+   - Teacher availability matches
+   - Student availability (if configured)
+6. Create schedule record
+
+Use Cases:
+- Regular weekly lessons (e.g., every Monday at 15:00)
+- Multiple lessons per week for same student
+- Different instruments with different schedules
+- Temporary schedule changes (effectiveUntil date)
+
+7.3 LESSON GENERATION
+---------------------
+IMPORTANT: The current system has schedule models but lesson generation
+appears to be a planned feature, not fully implemented.
+
+Intended Process:
+1. Cron job runs daily/weekly
+2. Finds active schedules
+3. For each schedule:
+   - Check if lesson already exists for upcoming date
+   - If not, create new lesson
+   - Apply schedule template (teacher, student, room, time)
+4. Generated lessons start as 'scheduled' status
+
+Implementation Status:
+- Schedule CRUD operations: ✓ Implemented
+- Automatic lesson generation: ⚠ Partial/Planned
+- Manual lesson creation: ✓ Implemented
+
+7.4 SCHEDULE MANAGEMENT
+-----------------------
+View Schedules:
+- List all schedules or filter by:
+  * Teacher
+  * Student
+  * Room
+  * Day of week
+  * Active status
+- Display in calendar or list view
+
+Edit Schedule:
+- Modify time or day
+- Change room
+- Update effective dates
+- Add notes
+- Validation prevents conflicts
+
+Deactivate Schedule:
+- Set isActive = false
+- Stops generating new lessons
+- Existing lessons remain
+- Can be reactivated
+
+Delete Schedule:
+- Permanent deletion possible
+- Only if no associated lessons
+- Or soft delete via isActive flag
+
+7.5 SCHEDULE ENDPOINTS
+----------------------
+- GET /api/schedules - List schedules
+- POST /api/schedules - Create new schedule
+- GET /api/schedules/[id] - Get schedule details
+- PUT /api/schedules/[id] - Update schedule
+- DELETE /api/schedules/[id] - Delete schedule
+
+================================================================================
+8. CHECK-IN SYSTEM
+================================================================================
+
+8.1 CHECK-IN FLOW
+-----------------
+Purpose: Quick, streamlined check-in for students and teachers arriving
+for their lessons.
+
+User Experience:
+1. User navigates to /checkin page
+2. Full-screen check-in interface displayed
+3. User enters 4-digit alpha numerical PIN, or if they are logged in, they have a Check in button
+4. System validates and finds their next lesson
+5. Display shows:
+   - Welcome message with name
+   - Room assignment (large, prominent)
+   - Lesson details (teacher/student, instrument, time)
+   - Current lesson status (scheduled/in-progress)
+6. Auto-redirect to live overview after 30 seconds
+
+Alternative Methods:
+- QR code scan (using device camera)
+- Direct URL with PIN parameter
+- Admin-initiated check-in
+
+8.2 CHECK-IN PAGE FEATURES
+---------------------------
+Interface Elements:
+- Large PIN input (4 digits)
+- Logo and branding
+- Language switcher
+- Link to live overview
+- Test PINs displayed (development only)
+
+Visual Feedback:
+- Large room number display (5rem font size)
+- Color-coded status badges
+- Check-in confirmation icons
+- Time information
+- Instrument and teacher/student display
+
+Error Handling:
+- Invalid PIN: Error message, retry option
+- No lesson found: Informative message
+- No lesson today: Friendly notification
+- All states auto-redirect after 30 seconds
+
+8.3 CHECK-IN WINDOW
+-------------------
+Timing Rules:
+- Can check in up to 60 minutes before lesson
+- Can check in during lesson
+- Cannot check in after lesson ends
+- Cannot check in for future lessons (>60 min away)
+
+Window Calculation:
+- Current time compared to lesson start time
+- If within 60 minutes before or during lesson: allow
+- Otherwise: reject with appropriate message
+
+8.4 CHECK-IN STATES
+-------------------
+1. ENTER PIN
+   - Initial state
+   - Large PIN input field
+   - Submit button (disabled until 4 digits entered)
+   - Test PINs shown for development
+
+2. SHOW ROOM (Success)
+   - Welcome message
+   - Large room number
+   - Lesson details
+   - Status badge (LIVE or Scheduled)
+   - Next lesson preview (if applicable)
+   - Auto-redirect countdown
+
+3. NO LESSON (No lesson today)
+   - Warning icon
+   - Friendly message
+   - No lessons scheduled notification
+   - Back button
+   - Auto-redirect countdown
+
+4. ERROR (PIN not found)
+   - Error icon
+   - Error message
+   - Try again button
+   - Link to live overview
+   - Auto-redirect countdown
+
+8.5 REAL-TIME UPDATES
+---------------------
+Socket.io Integration:
+- Check-in triggers Socket.io broadcast
+- Event: 'checkin'
+- Payload includes: lessonId, roomId, userId, role
+- Live overview page receives event
+- Automatically refreshes room data
+- Shows updated check-in status immediately
+
+Broadcast Flow:
+1. User checks in
+2. Server validates and updates database
+3. Server emits 'checkin' event to 'live-updates' room
+4. All connected clients receive event
+5. Clients refresh their displayed data
+6. UI updates without page reload
+
+8.6 CHECK-IN VALIDATION
+-----------------------
+Security Checks:
+- PIN must exist in system
+- User must have a lesson scheduled
+- Lesson must be within check-in window
+- User must be assigned to the lesson
+
+Business Rules:
+- Teacher checks in as teacher
+- Student checks in as student
+- Cannot check in for someone else's lesson
+- Cannot check in multiple times (idempotent)
+
+8.7 CHECK-IN API
+----------------
+Endpoint: POST /api/checkin
+Request Body:
+{
+  "pin": "1234"
+}
+
+Response (Success):
+{
+  "success": true,
+  "user": {
+    "name": "John Doe",
+    "role": "student"
+  },
+  "lesson": {
+    "id": "...",
+    "teacher": "Jane Smith",
+    "student": "John Doe",
+    "instrument": "Piano",
+    "room": "Room A",
+    "startTime": "14:00",
+    "endTime": "14:35",
+    "status": "in-progress"
+  }
+}
+
+Response (No Lesson):
+{
+  "success": false,
+  "message": "No lesson found for today",
+  "user": { "name": "John Doe" }
+}
+
+Response (Invalid PIN):
+{
+  "success": false,
+  "message": "Invalid PIN"
+}
+
+================================================================================
+9. ROOM MANAGEMENT
+================================================================================
+
+9.1 ROOM MODEL
+--------------
+Simple but essential entity for managing practice/teaching spaces:
+
+Core Fields:
+- name: Room name/identifier (required, unique)
+  * Examples: "Room A", "Piano Room 1", "Studio B"
+- number: Room number (required)
+  * Can be same as name or different
+  * Used for check-in display
+- capacity: Number of people room can hold (default: 2)
+- equipment: Array of equipment available
+  * Examples: ["Grand Piano", "Drum Set", "PA System"]
+- isActive: Boolean for soft deletion
+- timestamps: createdAt, updatedAt
+
+9.2 ROOM STATUS (DYNAMIC)
+--------------------------
+Room status is calculated in real-time based on lessons:
+
+OCCUPIED (Red):
+- Current lesson in progress
+- Status = 'in-progress'
+- Current time within lesson start/end time
+- Shows:
+  * Current student and teacher
+  * Instrument being taught
+  * Time remaining in lesson
+  * Check-in status of both parties
+  * Next upcoming lesson (if any)
+
+UPCOMING (Yellow):
+- Next lesson starting soon
+- Lesson scheduled within next 30 minutes
+- Shows:
+  * Student and teacher names
+  * Time until lesson starts
+  * Instrument
+  * Check-in status
+
+AVAILABLE (Green):
+- No current lesson
+- No upcoming lesson soon
+- Room is free for use
+
+9.3 LIVE ROOM OVERVIEW
+----------------------
+Real-time Room Display (/live page):
+
+Features:
+- 4-room grid layout (responsive)
+- Auto-refresh every 30 seconds
+- Socket.io real-time updates
+- Color-coded status (Red/Yellow/Green)
+- Time remaining counters
+- Check-in indicators
+- Next lesson preview
+
+Desktop View:
+- All room details visible
+- Full information display
+- 4-column grid
+- Expanded lesson information
+
+Mobile View:
+- Collapsible room cards
+- Tap to expand details
+- Compact summary view
+- Essential info visible
+- Full details on tap
+- 1-2 column responsive grid
+
+Display Information:
+- Room name and number
+- Current lesson:
+  * Student name (✓ if checked in)
+  * Teacher name (✓ if checked in)
+  * Instrument
+  * Time remaining (large, prominent)
+  * "LIVE" badge for occupied rooms
+- Next lesson:
+  * Student name
+  * Start time
+  * Instrument
+  * Minutes until start
+
+9.4 ROOM ALLOCATION
+-------------------
+Manual Assignment:
+- Admin creates/updates lessons
+- Selects available room
+- System validates:
+  * Room not occupied at that time
+  * Room has required equipment (optional)
+
+Conflict Detection:
+- Checks for overlapping lessons
+- Prevents double-booking
+- Shows alternative rooms if conflict
+- Validates start/end times
+
+Room Filtering:
+- Filter by equipment available
+- Filter by capacity
+- Show only active rooms
+- Availability-based filtering
+
+9.5 ROOM UTILIZATION
+--------------------
+Tracking:
+- Total lessons per room
+- Hours used per room
+- Peak usage times
+- Utilization percentage
+
+Utilization Report:
+- Available in Reports section
+- Shows per-room statistics
+- Identifies underutilized rooms
+- Helps with scheduling optimization
+- Peak hours analysis
+
+Calculations:
+- Hours Used = Sum of all lesson durations
+- Total Possible Hours = Working hours per day × Days
+- Utilization Rate = (Hours Used / Total Possible) × 100
+
+9.6 ROOM MANAGEMENT FEATURES
+-----------------------------
+Create Room:
+- Set name and number
+- Configure capacity
+- List equipment
+- Activate room
+
+Update Room:
+- Rename room
+- Update number
+- Modify capacity
+- Add/remove equipment
+- Change active status
+
+View Rooms:
+- List all rooms
+- Filter by active status
+- See current occupation status
+- View room schedule
+
+Delete Room:
+- Soft delete (isActive = false)
+- Cannot delete if active lessons scheduled
+- Historical data preserved
+
+9.7 ROOM ENDPOINTS
+------------------
+- GET /api/rooms - List all rooms
+- POST /api/rooms - Create new room
+- GET /api/rooms/[id] - Get room details
+- PUT /api/rooms/[id] - Update room
+- DELETE /api/rooms/[id] - Deactivate room
+- GET /api/rooms/live - Live status of all rooms
+
+Live Rooms Response Format:
+{
+  "success": true,
+  "rooms": [
+    {
+      "id": "...",
+      "name": "Room A",
+      "number": "A",
+      "status": "occupied",
+      "currentLesson": {
+        "id": "...",
+        "student": "John Doe",
+        "teacher": "Jane Smith",
+        "instrument": "Piano",
+        "startTime": "14:00",
+        "endTime": "14:35",
+        "timeRemaining": "25",
+        "studentCheckIn": true,
+        "teacherCheckIn": true
+      },
+      "nextLesson": {
+        "student": "Bob Wilson",
+        "instrument": "Guitar",
+        "startTime": "14:35",
+        "startsIn": "10"
+      }
+    }
+  ]
+}
+
+================================================================================
+10. LIVE OVERVIEW & REAL-TIME FEATURES
+================================================================================
+
+10.1 LIVE OVERVIEW PAGE
+-----------------------
+Public-facing display showing current room status in real-time.
+
+URL: /live
+Access: Public (no authentication required)
+Purpose: Digital signage for school entrance/lobby
+
+Layout:
+- Full-width header with:
+  * School logo
+  * School name
+  * Current time (updates every second)
+  * Current date
+  * Check-in button
+  * Logout button (if authenticated)
+  * Language switcher
+- 4-room grid (responsive)
+- Dark theme for better visibility
+- Auto-updating display
+
+10.2 ROOM CARDS
+---------------
+Each room displays:
+
+Occupied Room (Red Theme):
+- Red border and header
+- "LIVE" badge (white on red)
+- Student name with check-in indicator (✓)
+- Teacher name with check-in indicator (✓)
+- Instrument badge (blue)
+- Large time remaining display (red text)
+- Next lesson preview (if applicable)
+
+Upcoming Room (Yellow Theme):
+- Yellow border and header
+- Student name with check-in status
+- Teacher name with check-in status
+- Instrument badge
+- Large countdown display (yellow text)
+- "minutes until start" text
+
+Available Room (Green Theme):
+- Green border and header
+- Checkmark icon
+- "Available" text
+- "No lessons scheduled" message
+
+Mobile Responsive:
+- Collapsible on mobile devices
+- Tap to expand full details
+- Compact summary shows:
+  * Names
+  * Instrument
+  * Time info
+- Full details shown on expansion
+
+10.3 REAL-TIME UPDATES
+----------------------
+Socket.io Integration:
+
+Server Side (server.js):
+- Custom Node.js server wraps Next.js
+- Socket.io server initialized
+- Global io instance available to API routes
+- Clients join 'live-updates' room
+
+Client Side (/live page):
+- Connects to Socket.io on page load
+- Joins 'live-updates' room
+- Listens for 'checkin' events
+- Refreshes room data on event receipt
+
+Update Triggers:
+- Check-in event: Immediate update
+- Timer: Refresh every 30 seconds (backup)
+- Auto-complete: Updates room status
+
+Events Broadcast:
+- 'checkin': When student/teacher checks in
+  * Triggers immediate room data refresh
+  * Updates check-in indicators
+  * Updates lesson status
+- Room status changes reflected in real-time
+
+10.4 AUTO-REFRESH SYSTEM
+------------------------
+Multiple refresh mechanisms:
+
+1. Socket.io Events (Instant):
+   - Triggered by user actions
+   - Check-ins
+   - Lesson updates
+
+2. Polling Interval (30 seconds):
+   - Backup refresh mechanism
+   - Ensures data stays current
+   - Catches any missed events
+
+3. Time Updates (1 second):
+   - Clock display updates
+   - Time remaining calculations
+   - Countdown timers
+
+4. Auto-Complete Check (1 minute):
+   - Calls auto-complete endpoint
+   - Completes finished lessons
+   - Frees up rooms
+
+10.5 DISPLAY FEATURES
+---------------------
+Time Display:
+- Current time: 24-hour format (HH:MM)
+- Current date: Long format (e.g., "Monday, October 30, 2025")
+- Time remaining: Minutes only
+- Countdown: Minutes until lesson starts
+
+Visual Indicators:
+- Check-in status: Green checkmark (✓)
+- Not checked in: Gray badge "Not Checked In"
+- LIVE badge: Pulsing red for occupied rooms
+- Status colors: Red/Yellow/Green
+- Instrument badges: Blue
+- Room badges: Gray
+
+Navigation:
+- Check-in button: Links to /checkin
+- Logo: Links to dashboard (if authenticated)
+- Logout button: Visible when authenticated
+- Language switcher: Toggle EN/HE
+
+10.6 MOBILE OPTIMIZATION
+------------------------
+Responsive Breakpoints:
+- Desktop (≥992px): All details visible
+- Tablet (768-991px): 2-column grid
+- Mobile (<768px): 1-column grid, collapsible cards
+
+Touch Interactions:
+- Tap room card to expand/collapse
+- Swipe not implemented (scroll only)
+- Large touch targets for buttons
+- Optimized for portrait orientation
+
+Mobile-Specific Features:
+- Compact display mode
+- Essential info always visible
+- Tap to see full details
+- Larger fonts for readability
+- Simplified layout
+
+10.7 BACKGROUND PROCESSES
+-------------------------
+While on Live Overview page:
+
+Running Processes:
+1. Socket.io connection (persistent)
+2. Room data polling (every 30 seconds)
+3. Auto-complete job (every minute)
+4. Time display update (every second)
+
+Resource Management:
+- Cleanup on unmount (disconnect Socket, clear intervals)
+- Efficient re-rendering (only changed data)
+- Minimal API calls (Socket.io preferred)
+
+================================================================================
+11. PAYMENT & BILLING SYSTEM
+================================================================================
+
+11.1 PAYMENT MODEL
+------------------
+Tracks all financial transactions with students:
+
+Core Fields:
+- studentId: Reference to Student (required)
+- amount: Payment amount (required, min: 0)
+- currency: Currency code (default: 'ILS')
+  * Options: 'ILS', 'USD', 'EUR'
+- paymentMethod: Enum (default: 'cash')
+  * Options: 'cash', 'credit_card', 'bank_transfer', 'check', 'other'
+- paymentDate: Date payment received (required, default: now)
+
+Period Tracking:
+- periodStart: Start date of coverage period (required)
+- periodEnd: End date of coverage period (required)
+- Used to match payments with lessons
+
+Status:
+- status: Enum (default: 'completed')
+  * 'pending': Payment expected but not received
+  * 'completed': Payment received and recorded
+  * 'failed': Payment attempt failed
+  * 'refunded': Payment was refunded
+
+Invoice & Reference:
+- invoiceNumber: Unique invoice number (optional)
+- referenceNumber: Check number, transaction ID, etc.
+- recordedBy: User ID who recorded payment (required)
+
+Lesson Details:
+- lessonsCount: Number of lessons payment covers
+- pricePerLesson: Price per lesson for this payment
+- Used for calculating payment adequacy
+
+Metadata:
+- notes: Additional notes (max 500 chars)
+- timestamps: createdAt, updatedAt
+
+11.2 PAYMENT MANAGEMENT
+-----------------------
+Create Payment:
+- Record new payment
+- Associate with student
+- Specify period covered
+- Set payment method and amount
+- Generate invoice number (optional)
+- Calculate lessons covered
+
+Update Payment:
+- Modify payment details
+- Change status
+- Add reference number
+- Update notes
+
+View Payments:
+- List all payments
+- Filter by:
+  * Student
+  * Date range
+  * Status
+  * Payment method
+- Sort by payment date
+
+Delete Payment:
+- Can only delete if status = 'pending'
+- Completed payments cannot be deleted (refund instead)
+- Maintains financial audit trail
+
+11.3 PAYMENT CALCULATIONS
+-------------------------
+Amount Calculation:
+- Base formula: lessonsCount × pricePerLesson
+- Minus: SOLU subsidy (20 ILS per lesson)
+- Minus: Additional subsidy (if applicable)
+- Equals: Amount owed by parent
+
+Example:
+- 4 lessons × 100 ILS = 400 ILS (teacher rate)
+- Minus: 4 × 20 ILS = 80 ILS (SOLU subsidy)
+- Minus: 4 × 30 ILS = 120 ILS (additional subsidy)
+- Parent pays: 200 ILS
+
+Subsidies Applied:
+1. SOLU subsidy (automatic, always 20 ILS)
+2. Additional subsidizer (if student has one)
+3. Subsidies reduce parent payment, not teacher rate
+
+11.4 INVOICE GENERATION
+-----------------------
+Features:
+- Automatic invoice number generation
+- PDF invoice generation (via /api/payments/[id]/invoice)
+- Includes:
+  * Student information
+  * Parent contact details
+  * Lesson details
+  * Payment breakdown
+  * Subsidy details
+  * Total amount
+  * Payment status
+
+PDF Generator Library: jspdf + jspdf-autotable
+
+11.5 PAYMENT SUMMARY
+--------------------
+Endpoint: GET /api/payments/summary/[studentId]
+
+Provides:
+- Total paid to date
+- Total owed
+- Outstanding balance
+- Payment history
+- Lessons covered vs. lessons taken
+- Next payment due date (estimated)
+
+Used By:
+- Student profile page
+- Parent communications
+- Financial reports
+- Admin dashboard
+
+11.6 BILLING MODEL
+------------------
+Monthly billing records for teachers:
+
+Core Fields:
+- teacherId: Reference to Teacher (required)
+- month: Month number 1-12 (required)
+- year: Year number (required)
+- lessons: Array of lesson details
+  * lessonId: Reference to Lesson
+  * date: Lesson date
+  * duration: Lesson duration
+  * studentName: Student name
+  * instrument: Instrument taught
+
+Totals:
+- totalLessons: Count of lessons (default: 0)
+- totalHours: Sum of lesson hours (default: 0)
+- totalAmount: Total payment due (default: 0)
+
+Status Tracking:
+- status: Enum (default: 'pending')
+  * 'pending': Billing generated, awaiting approval
+  * 'approved': Admin approved, ready for payment
+  * 'paid': Teacher has been paid
+- generatedAt: When billing was created (default: now)
+- paidAt: When payment was made
+
+Unique Constraint:
+- One billing record per teacher per month
+- Compound index: (teacherId, month, year)
+
+11.7 BILLING WORKFLOW
+---------------------
+1. GENERATION (Monthly)
+   - Cron job runs at end of month
+   - Collects all completed lessons for teacher
+   - Calculates totals
+   - Creates billing record with status='pending'
+
+2. REVIEW (Admin)
+   - Admin reviews billing records
+   - Verifies lesson count and amounts
+   - Can edit if needed
+   - Approves when ready (status='approved')
+
+3. PAYMENT (Admin)
+   - Process payment to teacher
+   - Mark as paid (status='paid')
+   - Record payment date
+   - Generate payment confirmation
+
+4. REPORTING
+   - Monthly billing reports
+   - Year-to-date summaries
+   - Teacher payment history
+   - Export to PDF/CSV
+
+11.8 PAYMENT ENDPOINTS
+----------------------
+- GET /api/payments - List payments
+- POST /api/payments - Create payment
+- GET /api/payments/[id] - Get payment details
+- PUT /api/payments/[id] - Update payment
+- DELETE /api/payments/[id] - Delete payment
+- GET /api/payments/[id]/invoice - Generate invoice PDF
+- GET /api/payments/summary/[studentId] - Payment summary
+
+11.9 BILLING ENDPOINTS
+----------------------
+- GET /api/billing - List billing records
+- POST /api/billing - Create billing (usually automated)
+- GET /api/billing/[id] - Get billing details
+- PUT /api/billing/[id] - Update billing
+- DELETE /api/billing/[id] - Delete billing
+
+================================================================================
+12. SUBSIDY MANAGEMENT
+================================================================================
+
+12.1 SUBSIDY SYSTEM OVERVIEW
+-----------------------------
+The system supports a two-tier subsidy model:
+1. Standard SOLU Subsidy: 20 ILS per lesson (automatic, all students)
+2. Additional Subsidizer: Variable amount per lesson (optional, per student)
+
+Purpose:
+- Reduce cost burden on families
+- Enable more students to attend lessons
+- Track subsidy amounts for reporting to donors
+- Maintain transparency in financial aid
+
+12.2 SUBSIDIZER MODEL
+---------------------
+Entity representing external organizations/individuals providing financial aid:
+
+Core Fields:
+- name: Subsidizer name (required)
+  * Examples: "ABC Foundation", "Community Grant", "Donor Name"
+- email: Contact email (required)
+- phone: Contact phone (optional)
+- notes: Notes about subsidizer (max 1000 chars)
+- isActive: Active status (boolean)
+- timestamps: createdAt, updatedAt
+
+Relationship:
+- One subsidizer can support multiple students
+- Each student can have only one additional subsidizer
+- SOLU subsidy is automatic and doesn't require subsidizer entity
+
+12.3 STUDENT SUBSIDY CONFIGURATION
+-----------------------------------
+Configured in Student model:
+
+SOLU Subsidy (Standard):
+- Field: soluSubsidy
+- Default: 20 ILS
+- Required: true
+- Applied to: All students automatically
+- Cannot be: Disabled or modified per student
+
+Additional Subsidy (Optional):
+- additionalSubsidy.hasSubsidy: Boolean flag
+- additionalSubsidy.subsidyPerLesson: Amount in ILS (min: 0)
+- additionalSubsidy.subsidizerId: Reference to Subsidizer
+
+Configuration Process:
+1. Admin edits student profile
+2. Enables additional subsidy (hasSubsidy = true)
+3. Selects subsidizer from dropdown
+4. Sets subsidy amount per lesson
+5. Amount applies to all future lessons
+
+12.4 SUBSIDY CALCULATION
+------------------------
+Applied during payment calculation:
+
+Per-Lesson Calculation:
+- Teacher Rate: 80 ILS (example)
+- SOLU Subsidy: -20 ILS
+- Additional Subsidy: -30 ILS (example)
+- Parent Pays: 30 ILS
+
+Multiple Lessons:
+- 4 lessons × 80 ILS = 320 ILS (gross)
+- 4 × 20 ILS = 80 ILS (SOLU subsidy)
+- 4 × 30 ILS = 120 ILS (additional subsidy)
+- Parent pays: 120 ILS
+
+Important Notes:
+- Subsidies do NOT reduce teacher pay
+- Teacher receives full rate (80 ILS)
+- School absorbs SOLU subsidy cost
+- Subsidizer pays their portion
+- Parent pays the remainder
+
+12.5 SUBSIDY TRACKING
+---------------------
+For Each Lesson:
+- Student subsidy amounts recorded
+- Attributed to specific subsidizer
+- Included in monthly reports
+
+Monthly Totals:
+- Per subsidizer:
+  * Total students supported
+  * Total lessons subsidized
+  * Total subsidy amount
+  * Breakdown per student
+- Per student:
+  * Lessons received
+  * Subsidy amounts received
+  * Which subsidizer(s) supported them
+
+12.6 SUBSIDIZER REPORTS
+-----------------------
+Purpose: Transparency and accountability for donors
+
+Report Includes:
+- Subsidizer information
+- Date range (month/year)
+- List of students supported
+- Per student:
+  * Student name
+  * Number of lessons
+  * Subsidy amount per lesson
+  * Total subsidy provided
+  * Detailed lesson breakdown (date, time, instrument, room)
+- Grand totals:
+  * Total students
+  * Total lessons
+  * Total subsidy amount
+
+Report Formats:
+- Web view (interactive)
+- PDF export (for email/print)
+- CSV export (for spreadsheets)
+
+PDF Contents:
+- Header with school logo and name
+- Report title and date
+- Subsidizer name and contact
+- Summary statistics
+- Detailed lesson tables
+- Page numbers and generation date
+- Professional formatting
+
+12.7 SUBSIDIZER MANAGEMENT
+---------------------------
+Create Subsidizer:
+- Add name and contact information
+- Optional notes about agreement terms
+- Activate immediately
+
+Update Subsidizer:
+- Modify contact information
+- Update notes
+- Change active status
+
+View Subsidizers:
+- List all subsidizers
+- Show active/inactive status
+- Count of students supported
+- Total subsidy amounts provided
+- Filter by active status
+
+Delete Subsidizer:
+- Soft delete (isActive = false)
+- Cannot delete if students currently assigned
+- Historical data preserved
+- Can be reactivated
+
+12.8 BUSINESS RULES
+-------------------
+Assignment Rules:
+- Student can have 0 or 1 additional subsidizer (not multiple)
+- Subsidizer can support multiple students
+- Subsidy amounts can vary per student
+- SOLU subsidy always applies (cannot be disabled)
+
+Financial Rules:
+- Subsidies reduce parent cost, not teacher pay
+- School tracks both subsidy types separately
+- Monthly reports generated for each subsidizer
+- Audit trail maintained for all subsidy applications
+
+Reporting Rules:
+- Reports generated only for completed lessons
+- Cancelled lessons not included
+- No-show lessons: configurable (typically excluded)
+- Subsidies only applied to attended lessons
+
+12.9 SUBSIDY ENDPOINTS
+----------------------
+- GET /api/subsidizers - List all subsidizers
+- POST /api/subsidizers - Create subsidizer
+- GET /api/subsidizers/[id] - Get subsidizer details
+- PUT /api/subsidizers/[id] - Update subsidizer
+- DELETE /api/subsidizers/[id] - Deactivate subsidizer
+- GET /api/reports/subsidizer - Subsidizer report with filters
+
+================================================================================
+13. REPORTING & ANALYTICS
+================================================================================
+
+13.1 REPORTING SYSTEM OVERVIEW
+-------------------------------
+Comprehensive reporting suite for administrative oversight and decision-making.
+
+Access: Admin only (/reports page)
+Purpose:
+- Financial oversight
+- Performance tracking
+- Resource utilization
+- Trend analysis
+- Donor reporting
+
+13.2 REPORT TYPES
+-----------------
+
+A) TEACHER BILLING REPORT
+   Purpose: Calculate monthly teacher payments
+   Filters: Month, Year, Specific Teacher
+   Includes:
+   - Teacher name
+   - Total lessons taught
+   - Lesson rate (per lesson or hourly)
+   - Total amount owed
+   - Detailed lesson breakdown
+     * Date, Time
+     * Student name
+     * Instrument
+     * Room
+     * Amount
+   - Summary totals
+   Export: PDF, CSV
+
+B) STUDENT ATTENDANCE REPORT
+   Purpose: Track student attendance and engagement
+   Filters: Month, Year, Specific Student
+   Includes:
+   - Student name
+   - Instruments studied
+   - Lessons scheduled
+   - Lessons attended
+   - Lessons cancelled
+   - No-shows
+   - Attendance rate (%)
+   - Amount owed (with subsidy breakdown)
+   - Color-coded performance (green/yellow/red)
+   Export: PDF, CSV
+
+C) SUBSIDIZER REPORT
+   Purpose: Demonstrate impact to donors
+   Filters: Month, Year, Specific Subsidizer
+   Includes:
+   - Subsidizer information
+   - Number of students supported
+   - Total lessons subsidized
+   - Total subsidy amount provided
+   - Per-student breakdown:
+     * Student name
+     * Lessons count
+     * Subsidy per lesson
+     * Total subsidy
+     * Detailed lesson list
+   - Grand totals
+   Export: PDF
+
+D) ROOM UTILIZATION REPORT
+   Purpose: Optimize room usage
+   Filters: Month, Year
+   Includes:
+   - Room name
+   - Total lessons held
+   - Hours used
+   - Utilization rate (%)
+   - Peak usage hours
+   - Color-coded efficiency
+   - Recommendations for improvement
+   Export: PDF, CSV
+
+E) ATTENDANCE TRENDS REPORT
+   Purpose: Identify patterns over time
+   Filters: Number of months (default: 6), Year
+   Includes:
+   - Monthly breakdown:
+     * Total lessons scheduled
+     * Lessons completed
+     * Cancellations
+     * No-shows
+     * Completion rate (%)
+   - Student trends (top 10):
+     * Total lessons
+     * Attendance rate
+     * Performance indicator
+   - Overall statistics
+   - Trend graphs (visual representation)
+   Export: PDF, CSV
+
+13.3 REPORT GENERATION PROCESS
+-------------------------------
+1. USER SELECTS CRITERIA
+   - Report type
+   - Date range (month/year)
+   - Specific entity (teacher/student/subsidizer) or "All"
+
+2. VALIDATION
+   - Check date range validity
+   - Verify user has permission
+   - Ensure selected entities exist
+
+3. DATA COLLECTION
+   - Query database for matching lessons
+   - Aggregate statistics
+   - Calculate derived metrics
+   - Sort and format data
+
+4. DISPLAY
+   - Render report in browser
+   - Interactive tables
+   - Color-coded indicators
+   - Summary statistics cards
+   - Visual feedback
+
+5. EXPORT OPTIONS
+   - PDF: Professional formatted document
+   - CSV: Spreadsheet-compatible format
+   - Direct download to user's device
+
+13.4 REPORT API ENDPOINTS
+--------------------------
+- GET /api/reports/billing?month=X&year=Y[&teacherId=Z]
+  Returns: Teacher billing data
+
+- GET /api/reports/attendance?month=X&year=Y[&studentId=Z]
+  Returns: Student attendance data
+
+- GET /api/reports/subsidizer?month=X&year=Y[&subsidizerId=Z]
+  Returns: Subsidizer impact data
+
+- GET /api/reports/room-utilization?month=X&year=Y
+  Returns: Room usage statistics
+
+- GET /api/reports/attendance-trends?months=N&year=Y
+  Returns: Multi-month trend data
+
+- GET /api/reports/monthly?month=X&year=Y[&teacherId=Z]
+  Returns: Comprehensive monthly summary
+
+13.5 REPORT CALCULATIONS
+-------------------------
+
+Attendance Rate:
+Formula: (Completed Lessons / Scheduled Lessons) × 100
+Excludes: Cancelled lessons (unless student-initiated)
+Includes: No-shows as negative attendance
+
+Utilization Rate:
+Formula: (Hours Used / Total Available Hours) × 100
+Total Available: Configured working hours × days in period
+Hours Used: Sum of all lesson durations
+
+Completion Rate:
+Formula: (Completed Lessons / All Lessons) × 100
+All Lessons: scheduled + completed + cancelled + no-show
+
+Total Amount (Billing):
+Formula: Total Lessons × Lesson Rate
+Alternative: Total Hours × Hourly Rate
+
+Amount Owed (Student):
+Formula: (Lessons × Teacher Rate) - (SOLU Subsidy) - (Additional Subsidy)
+Example: (4 × 80) - (4 × 20) - (4 × 30) = 120 ILS
+
+13.6 REPORT VISUALIZATION
+--------------------------
+Summary Cards:
+- Large numbers with icons
+- Color-coded borders (blue/green/yellow/red)
+- Descriptive labels
+- Contextual information
+
+Data Tables:
+- Sortable columns
+- Filterable rows
+- Color-coded cells (performance indicators)
+- Row hover effects
+- Responsive design
+
+Status Badges:
+- Green (≥80%): Excellent
+- Yellow (60-79%): Good
+- Red (<60%): Needs attention
+- Gray: Neutral/not applicable
+
+Export Buttons:
+- PDF: Red button with PDF icon
+- CSV: Green button with download icon
+- Positioned at top-right of report
+
+13.7 PDF GENERATION DETAILS
+----------------------------
+Library: jspdf + jspdf-autotable
+
+PDF Features:
+- School logo and branding
+- Report title and type
+- Generation date (today)
+- Period covered (month/year)
+- Professional table formatting
+- Page numbers (X of Y)
+- Footer with school info
+- Proper page breaks
+- Summary statistics
+- Detailed data tables
+- Grid theme for tables
+- Color-coded headers
+- Automatic column sizing
+
+PDF Naming Convention:
+- billing_report_MONTH_YEAR.pdf
+- attendance_report_MONTH_YEAR.pdf
+- subsidizer_report_MONTH_YEAR.pdf
+- room_utilization_MONTH_YEAR.pdf
+- monthly_summary_MONTH_YEAR.pdf
+
+13.8 CSV EXPORT DETAILS
+------------------------
+Format: Standard CSV (Comma-Separated Values)
+
+Features:
+- Column headers
+- Quoted strings (for names with commas)
+- UTF-8 encoding (supports Hebrew)
+- Summary rows at bottom
+- Proper date formatting
+- Currency symbols (₪ for ILS)
+
+Use Cases:
+- Import into Excel
+- Import into Google Sheets
+- Further analysis
+- Custom reporting
+- Backup/archival
+
+13.9 REPORT SCHEDULING
+----------------------
+Current Status: Manual generation only
+
+Planned Features:
+- Automated monthly report generation
+- Email delivery to configured recipients
+- Scheduled PDF attachments
+- Report subscription system
+- Custom report templates
+
+Implementation: Cron jobs + Email service
+
+13.10 ANALYTICS DASHBOARD
+--------------------------
+Location: /dashboard (Admin only)
+
+Key Metrics Displayed:
+- Total students (count)
+- Total teachers (count)
+- Lessons today (count)
+- Active rooms (X of 4)
+
+Today's Schedule:
+- Table of all today's lessons
+- Time, Student, Teacher, Instrument, Room, Status
+- Color-coded status badges
+- Links to relevant management pages
+
+Quick Actions:
+- View live overview
+- Create schedule
+- Add student
+- Generate reports
+
+System Information:
+- Total rooms available
+- Active now count
+- Lessons today count
+- Link to live overview
+
+13.11 REPORT PERMISSIONS
+-------------------------
+Admin Only:
+- Generate all report types
+- View all data
+- Export to PDF/CSV
+- Access reports page
+
+Teachers (Planned):
+- View own billing reports
+- View own student roster
+- Limited attendance data
+
+Students/Parents (Planned):
+- View own attendance
+- View own payment history
+- Download own invoices
+
+================================================================================
+14. TEACHER ABSENCE & COVERAGE MANAGEMENT
+================================================================================
+
+14.1 ABSENCE MANAGEMENT OVERVIEW
+---------------------------------
+Comprehensive system for managing teacher absences and finding substitute
+teachers to maintain lesson continuity.
+
+Purpose:
+- Track teacher absences
+- Identify affected lessons
+- Find suitable substitutes
+- Notify relevant parties
+- Maintain lesson quality
+
+Access: Admin only (/coverage page)
+
+14.2 TEACHER ABSENCE MODEL
+---------------------------
+Core Fields:
+- teacherId: Reference to Teacher (required)
+- startDate: First day of absence (required)
+- endDate: Last day of absence (required)
+- reason: Absence reason (max 500 chars)
+  * Examples: "Vacation", "Illness", "Conference"
+- status: Enum (default: 'pending')
+  * 'pending': Just reported, not yet processed
+  * 'coverage_needed': Lessons identified, seeking substitutes
+  * 'partially_covered': Some lessons have substitutes
+  * 'fully_covered': All lessons covered
+  * 'cancelled': Absence cancelled (teacher available)
+
+Tracking:
+- reportedBy: User ID who reported absence (required)
+- notes: Additional information (max 1000 chars)
+- timestamps: createdAt, updatedAt
+
+Indexes:
+- teacherId + date range
+- Status
+- Date range
+
+14.3 REPORTING ABSENCE WORKFLOW
+--------------------------------
+1. INITIATION (Admin)
+   - Admin clicks "Report Absence"
+   - Modal form appears
+
+2. FORM SUBMISSION
+   Fields:
+   - Select Teacher (dropdown)
+   - Start Date (date picker, min: today)
+   - End Date (date picker, min: start date)
+   - Reason (text input, optional)
+   - Notes (textarea, optional)
+
+3. PROCESSING (Backend)
+   - Validate date range
+   - Find all scheduled lessons in range for teacher
+   - Create TeacherAbsence record
+   - Create SubstituteRequest for each affected lesson
+   - Run substitute matching algorithm
+   - Set status to 'coverage_needed'
+   - Return count of affected lessons
+
+4. CONFIRMATION (Frontend)
+   - Display success message
+   - Show number of lessons needing coverage
+   - Refresh absence list
+   - Refresh substitute requests list
+
+14.4 SUBSTITUTE REQUEST MODEL
+------------------------------
+Created automatically for each lesson affected by an absence.
+
+Core Fields:
+- absenceId: Reference to TeacherAbsence (required)
+- lessonId: Reference to Lesson (required)
+- originalTeacherId: Reference to original Teacher (required)
+- substituteTeacherId: Reference to substitute (null until assigned)
+- studentId: Reference to Student (required)
+- instrument: Instrument for lesson (required)
+
+Lesson Details:
+- lessonDate: Date of lesson (required)
+- startTime: Start time "HH:MM" (required)
+- endTime: End time "HH:MM" (required)
+- roomId: Room assignment (required)
+
+Status Tracking:
+- status: Enum (default: 'pending')
+  * 'pending': Just created, no suggestions yet
+  * 'substitute_suggested': Algorithm found suggestions
+  * 'awaiting_approval': Admin reviewing suggestions
+  * 'approved': Substitute approved, lesson reassigned
+  * 'declined': Substitute declined or unavailable
+  * 'completed': Lesson happened with substitute
+  * 'cancelled': Lesson cancelled instead
+
+Substitute Suggestions:
+- suggestedSubstitutes: Array of potential substitutes
+  * teacherId: Reference to substitute teacher
+  * reason: Why they're a good match
+  * score: Numeric score (higher = better match)
+- Generated by matching algorithm
+
+Approval Tracking:
+- approvedBy: User ID who approved substitute
+- approvedAt: Timestamp of approval
+- notes: Additional notes (max 500 chars)
+
+14.5 SUBSTITUTE MATCHING ALGORITHM
+-----------------------------------
+Purpose: Automatically find best substitute teachers
+
+Matching Criteria (Scored):
+1. Instrument Match (Weight: 40 points)
+   - Substitute teaches same instrument
+   - Most important factor
+
+2. Availability Match (Weight: 30 points)
+   - Substitute available at that time/day
+   - Checks availability schedule
+   - Verifies no conflicting lessons
+
+3. Student Familiarity (Weight: 20 points)
+   - Substitute has taught this student before
+   - Higher score if recent
+   - Checks lesson history
+
+4. Experience Level (Weight: 10 points)
+   - Total lessons taught
+   - Years of experience
+   - Higher score for more experienced
+
+Scoring:
+- Each teacher receives total score (0-100)
+- Sorted by score (highest first)
+- Top 3-5 suggestions included
+- Score and reason displayed to admin
+
+Example Suggestions:
+1. Sarah Levi (Score: 95)
+   "Teaches Piano, available at that time, has taught this student before"
+
+2. David Cohen (Score: 80)
+   "Teaches Piano, available at that time"
+
+3. Rachel Mizrahi (Score: 65)
+   "Teaches Piano, no conflicts"
+
+14.6 SUBSTITUTE APPROVAL WORKFLOW
+----------------------------------
+1. REVIEW REQUEST
+   - Admin navigates to Coverage page
+   - Sees list of lessons needing substitutes
+   - Table shows: Date, Time, Original Teacher, Student, Room
+   - Shows suggested substitutes
+
+2. CLICK "REVIEW & APPROVE"
+   - Modal opens with lesson details
+   - Shows original teacher and student
+   - Lists suggested substitutes with scores
+   - Top suggestion highlighted with star (⭐)
+
+3. SELECT SUBSTITUTE
+   - Radio buttons for each suggestion
+   - Can see score and reason for each
+   - Warning message: "Confirm with substitute first!"
+
+4. APPROVE
+   - Click "Approve Substitute" button
+   - Confirmation dialog
+   - Backend processing:
+     * Update lesson teacherId to substitute
+     * Update SubstituteRequest status to 'approved'
+     * Record approvedBy and approvedAt
+     * Send notification emails
+     * Update TeacherAbsence status if all covered
+
+5. CONFIRMATION
+   - Success message
+   - Refreshes absence list
+   - Refreshes substitute requests list
+   - Removed from "needs coverage" list
+
+14.7 SUBSTITUTE REQUEST STATUS FLOW
+------------------------------------
+pending → substitute_suggested → approved → completed
+                                ↓
+                            declined
+                                ↓
+                           (try another substitute)
+
+Alternative: cancelled (if lesson cancelled instead)
+
+14.8 COVERAGE PAGE FEATURES
+----------------------------
+Stats Cards:
+- Needs Coverage: Count of unassigned substitute requests
+- Upcoming Absences: Count of future absences
+
+Lessons Needing Substitutes Table:
+Columns:
+- Date & Time
+- Original Teacher
+- Student
+- Instrument (badge)
+- Room (badge)
+- Suggested Substitutes (top 1 shown, count of additional)
+- Actions (Review & Approve button)
+
+Upcoming Absences Table:
+Columns:
+- Teacher
+- Start Date
+- End Date
+- Reason
+- Status (badge with color coding)
+- Reported By
+
+Report Absence Modal:
+- Teacher selection dropdown
+- Date pickers for start/end
+- Reason text input
+- Notes textarea
+- Cancel / Report Absence buttons
+
+Approve Substitute Modal:
+- Lesson details panel (blue background)
+  * Date, Time, Room
+  * Original Teacher, Student, Instrument
+- Substitute selection (radio buttons)
+  * Each shows: Name, Score, Reason
+  * Top choice has star indicator
+- Warning alert (yellow)
+  * Reminds to confirm with substitute
+- Cancel / Approve buttons
+
+14.9 NOTIFICATION SYSTEM
+------------------------
+Email Notifications Sent:
+- To Original Teacher: Absence confirmed
+- To Student/Parent: Teacher unavailable, substitute assigned
+- To Substitute Teacher: Request to cover lesson
+- To Admin: Summary of coverage status
+
+Email Contents:
+- Original lesson details
+- Substitute teacher information
+- Date, time, room
+- Student information
+- Accept/decline instructions (for substitute)
+
+14.10 COVERAGE ENDPOINTS
+-------------------------
+- GET /api/teacher-absences?upcoming=true
+  Returns: Upcoming absences
+
+- POST /api/teacher-absences
+  Creates: New absence, generates substitute requests
+
+- PUT /api/teacher-absences/[id]
+  Updates: Absence details or status
+
+- DELETE /api/teacher-absences/[id]
+  Cancels: Absence (sets status='cancelled')
+
+- GET /api/substitute-requests?status=substitute_suggested
+  Returns: Requests needing approval
+
+- POST /api/substitute-requests/[id]/approve
+  Approves: Substitute for request
+
+- GET /api/substitute-requests/[id]
+  Returns: Request details with suggestions
+
+14.11 BUSINESS RULES
+---------------------
+Absence Creation:
+- End date must be >= start date
+- Cannot report absence for past dates
+- Must select a teacher
+- Automatically finds affected lessons
+
+Substitute Assignment:
+- Must be approved by admin
+- Substitute must teach the instrument
+- System checks substitute availability
+- Original teacher rate applies (no change to billing)
+- Substitute paid same as original rate
+
+Status Updates:
+- pending → coverage_needed (automatic)
+- coverage_needed → partially_covered (when some assigned)
+- partially_covered → fully_covered (when all assigned)
+- Any status → cancelled (if absence cancelled)
+
+Lesson Impact:
+- Original lesson record updated (teacherId changes)
+- Lesson status remains 'scheduled'
+- Room assignment unchanged
+- Student notified of change
+- Check-in works normally with substitute
+
+================================================================================
+15. NOTIFICATION SYSTEM
+================================================================================
+
+15.1 EMAIL SERVICE OVERVIEW
+----------------------------
+Automated email notifications for various system events.
+
+Service: Nodemailer
+Configuration: SMTP (configurable provider)
+Environment Variables:
+- SMTP_HOST: Mail server hostname
+- SMTP_PORT: Mail server port (587 or 465)
+- SMTP_USER: SMTP username/email
+- SMTP_PASS: SMTP password
+- Process.env checked, falls back to console logging if not configured
+
+15.2 EMAIL TEMPLATES
+--------------------
+All emails use HTML + plain text dual format for compatibility.
+
+Template System:
+- Predefined templates in /src/lib/emailService.js
+- Template functions accept data objects
+- Generate both HTML and text versions
+- Consistent branding and styling
+- Responsive email design
+
+Available Templates:
+1. lessonReminder
+2. lessonCancelled
+3. lessonRescheduled
+4. pinReset
+5. dailySummary
+
+15.3 LESSON REMINDER EMAIL
+---------------------------
+Trigger: 24 hours before lesson (cron job)
+Sent To: Teacher AND Student (separate emails)
+Also: Parent email if configured
+
+Subject: "Reminder: Lesson Tomorrow at [time]"
+
+Contents:
+- Greeting with recipient name
+- Reminder that lesson is tomorrow
+- Lesson details box:
+  * Date
+  * Time (start - end)
+  * Instrument
+  * Room
+  * Teacher name (for student)
+  * Student name (for teacher)
+- Friendly sign-off
+- School contact information
+- Auto-message disclaimer
+
+Purpose:
+- Reduce no-shows
+- Help with schedule planning
+- Professional communication
+
+Implementation:
+- reminderSent flag on Lesson model
+- Cron job: /api/cron/send-reminders
+- Runs every 15 minutes (configurable)
+- Finds lessons tomorrow that haven't been reminded
+- Sends emails
+- Sets reminderSent = true
+
+15.4 LESSON CANCELLATION EMAIL
+-------------------------------
+Trigger: Lesson cancelled by admin/teacher/system
+Sent To: Teacher, Student, Parent
+
+Subject: "Lesson Cancelled - [date] at [time]"
+
+Contents:
+- Cancellation notification
+- Original lesson details (red box):
+  * Date
+  * Time
+  * Instrument
+  * Teacher/Student
+  * Cancellation reason (if provided)
+- Instructions to reschedule
+- Contact information
+- School branding
+
+Purpose:
+- Immediate notification
+- Prevent unnecessary trips
+- Maintain communication
+- Professional courtesy
+
+15.5 LESSON RESCHEDULED EMAIL
+------------------------------
+Trigger: Lesson rescheduled to new date/time
+Sent To: Teacher, Student, Parent
+
+Subject: "Lesson Rescheduled - New Time: [date] at [time]"
+
+Contents:
+- Reschedule notification
+- Old date/time (crossed out, gray text)
+- New date/time (green box, emphasized):
+  * New date
+  * New time
+  * Instrument
+  * Room
+  * Teacher/Student
+- Reminder to update calendar
+- School contact information
+
+Purpose:
+- Clear communication of changes
+- Avoid confusion
+- Ensure attendance at new time
+- Maintain records
+
+15.6 PIN RESET EMAIL
+--------------------
+Trigger: PIN reset by admin or user request
+Sent To: User (student/teacher)
+Also: Parent if student is minor
+
+Subject: "Your Check-In PIN Has Been Reset"
+
+Contents:
+- PIN reset notification
+- New PIN (large, centered, bold):
+  * 4-digit PIN
+  * High visibility
+  * Easy to read
+- Security reminder (don't share)
+- Usage instructions:
+  * Use for check-in
+  * Can check in 60 minutes early
+- For students: Share with parent reminder
+- School contact information
+
+Purpose:
+- Deliver new PIN securely
+- Instructions for use
+- Security best practices
+- Parent involvement for minors
+
+Format:
+- Large, clear PIN display
+- Green box highlighting
+- Letter-spaced for clarity
+- Multiple reminders about security
+
+15.7 DAILY SUMMARY EMAIL
+------------------------
+Trigger: Every morning (7 AM via cron)
+Sent To: Teachers and Students with lessons today
+Also: Parents if student has lessons
+
+Subject: "Your Lessons Today - [date]"
+
+Contents:
+- Greeting
+- Today's date
+- Total lesson count for recipient
+- Formatted lesson list:
+  * For teachers: List of all students today
+  * For students: List of all lessons today
+  * Includes: Time, Student/Teacher, Instrument, Room
+- Reminder to arrive early
+- Reminder to check in with PIN
+- School contact information
+
+Purpose:
+- Morning overview of day's schedule
+- Reduce no-shows
+- Remind about check-in process
+- Professional communication
+
+Implementation:
+- dailySummarySent flag on Lesson model
+- Cron job: /api/cron/send-daily-summary
+- Runs every day at 7 AM
+- Groups lessons by user
+- Sends one email per user
+- Sets dailySummarySent = true
+
+15.8 CRON JOB CONFIGURATION
+----------------------------
+Defined in: vercel.json
+
+Jobs:
+1. Send Reminders
+   - Path: /api/cron/send-reminders
+   - Schedule: Every 15 minutes (*/15 * * * *)
+   - Function: Send next-day lesson reminders
+   - Secret: CRON_SECRET (required header)
+
+2. Send Daily Summary
+   - Path: /api/cron/send-daily-summary
+   - Schedule: Every day at 7 AM Israel time (0 4 * * *)
+   - Function: Send today's lessons summary
+   - Secret: CRON_SECRET (required header)
+
+Security:
+- All cron endpoints check for CRON_SECRET header
+- Unauthorized requests rejected (401)
+- Rate limiting applied
+- Logs all executions
+
+15.9 EMAIL SENDING FUNCTION
+----------------------------
+Function: sendEmail(to, templateName, data)
+
+Parameters:
+- to: Email address (string)
+- templateName: Template key (string)
+- data: Template-specific data (object)
+
+Process:
+1. Check SMTP configuration
+2. Load requested template
+3. Generate HTML and text versions
+4. Create nodemailer transporter
+5. Send email
+6. Log result
+7. Return success/failure
+
+Return Value:
+{
+  success: boolean,
+  messageId: string (if successful),
+  error: string (if failed)
+}
+
+Error Handling:
+- Logs errors to console
+- Returns error message
+- Continues execution (non-blocking)
+- User sees success even if email fails (graceful degradation)
+
+15.10 BULK EMAIL FUNCTION
+--------------------------
+Function: sendBulkEmails(recipients, templateName, dataFn)
+
+Purpose: Send same template to multiple recipients with personalized data
+
+Parameters:
+- recipients: Array of objects with 'email' property
+- templateName: Template key (string)
+- dataFn: Function that generates data per recipient OR static data object
+
+Process:
+1. Iterate through recipients
+2. Generate personalized data for each (via dataFn)
+3. Send individual email
+4. Collect results
+5. Return array of results
+
+Use Cases:
+- Daily summaries (all users with lessons)
+- Reminder emails (teachers and students)
+- Announcement emails
+- Report delivery
+
+Example:
+```javascript
+sendBulkEmails(
+  usersWithLessons,
+  'dailySummary',
+  (user) => ({
+    recipientName: user.name,
+    date: today,
+    totalLessons: user.lessons.length,
+    lessonsList: formatLessons(user.lessons)
+  })
+)
+```
+
+15.11 EMAIL STYLING
+--------------------
+All HTML emails include:
+- Inline CSS (email client compatible)
+- Responsive design
+- School branding colors
+- Professional typography
+- Clear hierarchy
+- Action-focused layout
+- Mobile-friendly (max-width: 600px)
+
+Color Scheme:
+- Primary: #2c3e50 (dark blue)
+- Success: #28a745 (green)
+- Warning: #f39c12 (orange)
+- Danger: #e74c3c (red)
+- Background: #f8f9fa (light gray)
+- Text: #333333 (dark gray)
+
+Components:
+- Header with school name
+- Content sections with boxes
+- Important info highlighted
+- Footer with contact details
+- Automated message disclaimer
+
+15.12 NOTIFICATION ENDPOINTS
+-----------------------------
+Cron Endpoints:
+- POST /api/cron/send-reminders
+  Sends lesson reminders for tomorrow
+
+- POST /api/cron/send-daily-summary
+  Sends today's lesson summary
+
+Manual Endpoints (Planned):
+- POST /api/notifications/send
+  Send custom notification
+
+- POST /api/notifications/announcement
+  Send announcement to group
+
+15.13 NOTIFICATION PREFERENCES (PLANNED)
+-----------------------------------------
+Future Enhancement: User-configurable notification preferences
+
+Planned Settings:
+- Email notifications on/off
+- SMS notifications on/off (future)
+- Reminder timing (24h, 2h, 30m before)
+- Daily summary on/off
+- Announcement emails on/off
+- Preferred notification time
+- Parent notifications separately configurable
+
+Storage: User model extension
+
+================================================================================
+16. INTERNATIONALIZATION (i18n)
+================================================================================
+
+16.1 LANGUAGE SUPPORT
+---------------------
+Supported Languages:
+1. English (en) - Default
+2. Hebrew (he) - Full RTL support
+
+Implementation: next-i18next library
+
+Translation Files:
+- /public/locales/en/common.json - English translations
+- /public/locales/he/common.json - Hebrew translations
+
+Structure:
+{
+  "app_name": "SOLU Worship Music School",
+  "nav": {
+    "dashboard": "Dashboard",
+    "live": "Live Overview",
+    ...
+  },
+  "dashboard": {
+    "welcome": "Welcome",
+    "total_students": "Total Students",
+    ...
+  },
+  ...
+}
+
+16.2 LANGUAGE CONTEXT
+---------------------
+Context Provider: LanguageContext (/src/contexts/LanguageContext.js)
+
+Features:
+- Current language state
+- Language toggle function
+- Translation function (t)
+- Persistence to localStorage
+- RTL mode detection
+- HTML dir attribute management
+
+Usage in Components:
+```javascript
+const { t, language, toggleLanguage } = useLanguage();
+<h1>{t('dashboard.welcome')}</h1>
+```
+
+16.3 LANGUAGE SWITCHER COMPONENT
+---------------------------------
+Component: LanguageSwitch (/src/components/common/LanguageSwitch.js)
+
+Features:
+- Toggle button for EN/HE
+- Flag icons (planned)
+- Smooth transition
+- Persists preference
+- Available on all pages
+
+Locations:
+- Header (all authenticated pages)
+- Live overview page
+- Check-in page
+- Login page
+
+Visual Design:
+- Button with current language
+- Click to toggle
+- Dropdown style (optional)
+- Accessible (keyboard navigation)
+
+16.4 RIGHT-TO-LEFT (RTL) SUPPORT
+---------------------------------
+Hebrew Language RTL Features:
+
+HTML Level:
+- <html dir="rtl"> when Hebrew selected
+- Automatic text alignment reversal
+- Bootstrap RTL support
+- Custom RTL styles
+
+CSS Adjustments:
+- Text alignment: right
+- Flex direction: row-reverse
+- Margins: left ↔ right swap
+- Padding: left ↔ right swap
+- Border radius: corners flip
+- Shadows: direction flip
+
+Implementation:
+```css
+[dir="rtl"] .element {
+  text-align: right;
+  margin-right: 0;
+  margin-left: auto;
+}
+```
+
+Bootstrap 5 RTL:
+- Built-in RTL support
+- Automatic utility class adaptation
+- ms-* (margin-start) instead of ml-* (margin-left)
+- Responsive to dir attribute
+
+16.5 HEBREW FORMATTING
+-----------------------
+Helper Library: /src/lib/hebrewFormatter.js
+
+Functions:
+
+1. formatHebrewDate(date, format)
+   - Converts dates to Hebrew format
+   - Options: 'short', 'medium', 'long'
+   - Examples:
+     * short: "30/10/2025"
+     * medium: "30 אוקטובר 2025"
+     * long: "יום רביעי, 30 אוקטובר 2025"
+
+2. formatHebrewTimeRange(start, end)
+   - Formats time ranges for Hebrew
+   - Examples:
+     * "14:00 - 14:35"
+     * "09:30 - 10:05"
+
+3. formatHebrewDuration(minutes)
+   - Formats duration in Hebrew
+   - Examples:
+     * "35 דקות" (35 minutes)
+     * "1 שעה ו-15 דקות" (1 hour and 15 minutes)
+
+4. formatHebrewMonthYear(month, year)
+   - Formats month/year in Hebrew
+   - Example: "אוקטובר 2025"
+
+5. isHebrewLocale()
+   - Returns true if current language is Hebrew
+   - Used for conditional formatting
+
+Usage:
+```javascript
+import { formatHebrewDate, isHebrewLocale } from '@/lib/hebrewFormatter';
+
+const displayDate = isHebrewLocale()
+  ? formatHebrewDate(lesson.date, 'short')
+  : new Date(lesson.date).toLocaleDateString('en-GB');
+```
+
+16.6 TRANSLATION KEYS STRUCTURE
+--------------------------------
+Organized by feature/page:
+
+Common:
+- app_name, loading, error, success, cancel, save, delete, etc.
+
+Navigation:
+- nav.dashboard, nav.lessons, nav.reports, etc.
+
+Dashboard:
+- dashboard.welcome, dashboard.total_students, etc.
+
+Lessons:
+- lessons.title, lessons.create, lessons.status, etc.
+
+Students:
+- students.title, students.add, students.profile, etc.
+
+Teachers:
+- teachers.title, teachers.add, teachers.profile, etc.
+
+Reports:
+- reports.title, reports.generate, reports.export, etc.
+
+Forms:
+- form.first_name, form.last_name, form.email, etc.
+
+Status Values:
+- status.scheduled, status.completed, status.cancelled, etc.
+
+16.7 LANGUAGE PERSISTENCE
+--------------------------
+Storage: localStorage
+
+Key: 'language'
+Values: 'en' | 'he'
+
+Behavior:
+- Initial load: Check localStorage
+- If not set: Use browser language or default 'en'
+- On change: Update localStorage
+- On page reload: Restore from localStorage
+- Persists across sessions
+
+Fallback:
+- If localStorage unavailable: Use session state
+- If browser language not supported: Default 'en'
+
+16.8 USER LANGUAGE PREFERENCE
+------------------------------
+Stored in: User model
+Field: language ('en' or 'he')
+
+Features:
+- Per-user language preference
+- Automatically applied on login
+- Overrides browser default
+- Syncs with LanguageContext
+- Updates on language toggle
+
+Usage:
+- Email notifications sent in user's language
+- Reports generated in user's language
+- Interface defaults to user's preference
+- Can be changed anytime via switcher
+
+16.9 TRANSLATION WORKFLOW
+--------------------------
+Adding New Translations:
+
+1. Identify new text that needs translation
+2. Create translation key (descriptive, namespaced)
+3. Add to en/common.json with English text
+4. Add to he/common.json with Hebrew text
+5. Use in component: t('namespace.key')
+6. Test in both languages
+7. Check RTL layout in Hebrew
+
+Best Practices:
+- Use namespaces for organization
+- Keep keys descriptive
+- Avoid hardcoded strings
+- Use pluralization when needed
+- Consider context in translations
+- Test with long text (German test)
+
+16.10 HEBREW TRANSLATION EXAMPLES
+----------------------------------
+Navigation:
+"dashboard" → "לוח בקרה"
+"lessons" → "שיעורים"
+"students" → "תלמידים"
+"teachers" → "מורים"
+"reports" → "דוחות"
+
+Status:
+"scheduled" → "מתוכנן"
+"completed" → "הושלם"
+"cancelled" → "בוטל"
+"in-progress" → "בתהליך"
+
+Actions:
+"create" → "צור"
+"edit" → "ערוך"
+"delete" → "מחק"
+"save" → "שמור"
+"cancel" → "בטל"
+
+16.11 INTERNATIONALIZATION ROADMAP
+-----------------------------------
+Completed:
+✓ English/Hebrew support
+✓ RTL layout
+✓ Language switcher
+✓ Translation files
+✓ Hebrew date/time formatting
+✓ localStorage persistence
+
+Planned Enhancements:
+- Additional languages (Russian, Arabic, French)
+- Pluralization support
+- Date/time library integration (date-fns)
+- Currency formatting per locale
+- Number formatting per locale
+- More sophisticated Hebrew calendar integration
+- Translation management UI
+- Crowdsourced translations
+- Language-specific fonts
+
+================================================================================
+17. TECHNICAL ARCHITECTURE
+================================================================================
+
+17.1 TECHNOLOGY STACK
+----------------------
+
+Frontend:
+- Framework: Next.js 15.5.4 (App Router)
+- React: 19.1.1
+- UI Library: Bootstrap 5.3.8 + React-Bootstrap 2.10.10
+- State Management: React Context API
+- Data Fetching: @tanstack/react-query 5.70.2
+- Real-time: Socket.io Client 4.8.1
+
+Backend:
+- Runtime: Node.js
+- Framework: Next.js API Routes + Custom Server
+- Server: Custom Node.js server (server.js)
+- Real-time: Socket.io Server 4.8.1
+- Database: MongoDB 8.x
+- ODM: Mongoose 8.18.3
+
+Authentication:
+- JWT: jsonwebtoken 9.0.2
+- Hashing: bcryptjs 2.4.3
+
+Utilities:
+- PDF Generation: jspdf 2.5.2 + jspdf-autotable 3.8.4
+- QR Codes: qrcode 1.5.4
+- QR Scanning: @zxing/library 0.22.0
+- Email: nodemailer 6.9.17
+- i18n: next-i18next 16.0.1
+
+Development:
+- Package Manager: npm
+- Linting: ESLint with Next.js config
+- Styling: Custom CSS + Bootstrap
+- Version Control: Git (recommended)
+
+17.2 PROJECT STRUCTURE
+-----------------------
+
+Root Directory:
+C:\Users\shilo\Documents\soluschool\
+
+Key Directories:
+/src                      - All source code
+  /app                    - Next.js App Router pages and API
+    /api                  - Backend API routes (49 endpoints)
+    /[pages]              - Frontend pages (18 pages)
+    layout.js             - Root layout
+    page.js               - Homepage
+    globals.css           - Global styles
+  /components             - Reusable React components (6)
+  /contexts               - React Context providers (2)
+  /models                 - Mongoose schemas (11 models)
+  /lib                    - Utility functions (7 libraries)
+  /styles                 - Additional stylesheets
+
+/public                   - Static assets
+  /images                 - Images (logo, etc.)
+  /locales                - Translation files (en, he)
+
+/scripts                  - Database utilities (12 scripts)
+/node_modules             - Dependencies
+/.next                    - Next.js build output
+
+Configuration Files:
+- server.js               - Custom Node.js + Socket.io server
+- next.config.js          - Next.js configuration
+- jsconfig.json           - Path aliases (@/*)
+- vercel.json             - Cron job configuration
+- package.json            - Dependencies and scripts
+- .env.local              - Environment variables
+- .eslintrc.json          - Linting rules
+- .gitignore              - Git ignore patterns
+
+17.3 ARCHITECTURE PATTERNS
+---------------------------
+
+Pattern: Hybrid Server-Client Architecture
+- Server-side: API routes, database operations, business logic
+- Client-side: UI rendering, state management, user interactions
+- Real-time: Socket.io for live updates
+- Separation: Clear boundary between frontend and backend
+
+Data Flow:
+1. User Action (Frontend)
+2. API Request (HTTP or Socket.io)
+3. Server Processing (Validation, business logic)
+4. Database Operation (Mongoose → MongoDB)
+5. Response (JSON)
+6. State Update (React Context/Query)
+7. UI Re-render (React)
+
+API Design:
+- RESTful conventions
+- HTTP methods: GET, POST, PUT, DELETE
+- JSON request/response
+- Status codes: 200, 201, 400, 401, 404, 500
+- Error handling: Consistent error objects
+- Authentication: JWT in cookies
+
+17.4 DATABASE DESIGN
+--------------------
+
+Database: MongoDB (NoSQL document database) or is it better postgres for render.com?
+ODM: Mongoose (schema-based modeling)
+
+Connection:
+- Connection string in .env.local 
+- Connection pooling enabled
+- Automatic reconnection
+
+Models (11 total):
+1. User - Authentication and core user data
+2. Student - Student-specific information
+3. Teacher - Teacher-specific information
+4. Lesson - Individual lesson records
+5. Schedule - Recurring lesson templates
+6. Room - Practice/teaching rooms
+7. Payment - Student payment records
+8. Billing - Teacher billing records
+9. Subsidizer - Subsidy providers
+10. TeacherAbsence - Teacher absence records
+11. SubstituteRequest - Substitute teacher requests
+
+Relationships:
+- User ←→ Student (1:1)
+- User ←→ Teacher (1:1)
+- Teacher ←→ Lesson (1:many)
+- Student ←→ Lesson (1:many)
+- Room ←→ Lesson (1:many)
+- Subsidizer ←→ Student (1:many)
+- Teacher ←→ TeacherAbsence (1:many)
+- TeacherAbsence ←→ SubstituteRequest (1:many)
+- Lesson ←→ SubstituteRequest (1:1)
+
+Indexes:
+- User: email (unique), role + isActive
+- Student: userId, teacherId, subsidizerId
+- Teacher: userId, instruments
+- Lesson: date + time, teacherId + date, studentId + date, roomId + date
+- Schedule: dayOfWeek + time, teacherId, studentId, roomId
+- Payment: studentId + paymentDate, invoiceNumber (unique)
+- Billing: teacherId + month + year (unique)
+- TeacherAbsence: teacherId + date range, status
+- SubstituteRequest: absenceId, lessonId, status
+
+17.5 AUTHENTICATION FLOW
+-------------------------
+
+Login Flow:
+1. User submits credentials (email/password or PIN)
+2. Server validates credentials
+3. If valid, generate JWT with:
+   - userId
+   - email
+   - role
+   - firstName
+   - expiration (24 hours)
+4. Set JWT in HTTP-only cookie
+5. Return user object
+6. Client stores user in AuthContext
+7. Redirect to appropriate page
+
+Protected Route Flow:
+1. User navigates to protected route
+2. Component wrapped in ProtectedPage or checks useAuth
+3. useAuth hook checks for JWT cookie
+4. If no JWT, redirect to /login
+5. If JWT exists, validate with /api/auth/me
+6. If invalid, redirect to /login
+7. If valid, render protected content
+
+Logout Flow:
+1. User clicks logout
+2. Call /api/auth/logout
+3. Server clears JWT cookie
+4. Client clears AuthContext
+5. Redirect to /login
+
+17.6 REAL-TIME ARCHITECTURE
+----------------------------
+
+Implementation: Socket.io
+
+Server Setup (server.js):
+- Custom Node.js server wraps Next.js
+- Socket.io server initialized alongside Next.js
+- io instance stored globally (global.io)
+- Available to all API routes
+
+Connection Flow:
+1. Client page loads
+2. Socket.io client connects to server
+3. Server accepts connection
+4. Client joins 'live-updates' room
+5. Server logs connection
+
+Event Broadcasting:
+1. API route completes action (e.g., check-in)
+2. API route accesses global.io
+3. Emits event to 'live-updates' room
+4. All connected clients receive event
+5. Clients refresh relevant data
+
+Events:
+- 'checkin': When user checks in for lesson
+  Payload: { lessonId, roomId, userId, role }
+
+Benefits:
+- Instant updates on live overview
+- No polling required for real-time data
+- Scalable to many concurrent users
+- Reduced server load vs polling
+
+Fallback:
+- If Socket.io fails, polling every 30s
+- Ensures data stays current
+- Graceful degradation
+
+17.7 STATE MANAGEMENT
+---------------------
+
+Approach: React Context API + React Query
+
+Context Providers:
+1. AuthContext - User authentication state
+   - user object
+   - loading state
+   - login function
+   - logout function
+   - isAuthenticated flag
+   - isAdmin flag
+
+2. LanguageContext - Internationalization state
+   - language ('en' or 'he')
+   - toggleLanguage function
+   - t function (translation)
+   - RTL detection
+
+React Query:
+- Data fetching and caching
+- Automatic refetching
+- Background updates
+- Optimistic updates
+- Error handling
+- Loading states
+
+Local State:
+- Component-specific state with useState
+- Form inputs
+- UI toggles (modals, dropdowns)
+- Temporary data
+
+State Flow:
+- Global state: Context
+- Server state: React Query
+- Local state: useState/useReducer
+- URL state: Next.js router
+
+17.8 API STRUCTURE
+------------------
+
+API Routes: /src/app/api/[endpoint]/route.js
+
+Naming Convention:
+- Collection: /api/[resource] (e.g., /api/students)
+- Document: /api/[resource]/[id] (e.g., /api/students/123)
+- Action: /api/[resource]/[id]/[action] (e.g., /api/students/123/reset-pin)
+
+HTTP Methods:
+- GET: Retrieve data
+- POST: Create new resource
+- PUT/PATCH: Update existing resource
+- DELETE: Remove resource
+
+Request Handling:
+1. Parse request (body, query params)
+2. Authenticate user (check JWT)
+3. Authorize action (check role/permissions)
+4. Validate input
+5. Connect to database
+6. Perform operation
+7. Handle errors
+8. Return response (JSON)
+
+Response Format:
+Success:
+{
+  "success": true,
+  "data": { ... },
+  "message": "Optional success message"
+}
+
+Error:
+{
+  "success": false,
+  "message": "Error description",
+  "error": "Detailed error (dev only)"
+}
+
+17.9 ERROR HANDLING
+-------------------
+
+Frontend:
+- Try-catch blocks in async functions
+- Error boundaries for React errors
+- User-friendly error messages
+- Loading states during operations
+- Toast/alert notifications
+
+Backend:
+- Try-catch in all API routes
+- Mongoose error handling
+- Validation errors returned clearly
+- 500 errors logged server-side
+- Graceful degradation
+
+Database:
+- Connection error handling
+- Query error catching
+- Validation at schema level
+- Unique constraint errors
+- Timeout handling
+
+User Experience:
+- Clear error messages (not technical jargon)
+- Actionable instructions ("Try again" button)
+- Error logging for debugging
+- Fallback UI when errors occur
+
+17.10 SECURITY MEASURES
+------------------------
+
+Authentication:
+- JWT tokens (secure, stateless)
+- HTTP-only cookies (XSS protection)
+- Secure flag in production (HTTPS only)
+- Token expiration (24 hours)
+- Password hashing (bcryptjs, 10 rounds)
+- PIN hashing (bcryptjs, 10 rounds)
+
+Authorization:
+- Role-based access control (RBAC)
+- Protected API routes check authentication
+- Protected pages redirect if not authenticated
+- Admin-only routes check isAdmin flag
+
+Input Validation:
+- Client-side validation (forms)
+- Server-side validation (always)
+- Mongoose schema validation
+- Type checking
+- Range checking
+- Pattern matching (email, phone)
+
+Data Protection:
+- Environment variables for secrets
+- .gitignore for sensitive files
+- MongoDB connection string hidden
+- SMTP credentials hidden
+- JWT secret hidden
+
+CORS:
+- Socket.io CORS configured
+- API routes CORS (Next.js default)
+- Restricted origins in production
+
+Rate Limiting:
+- Planned: API rate limiting
+- Cron endpoints require secret
+- Login attempt limiting (planned)
+
+17.11 PERFORMANCE OPTIMIZATION
+-------------------------------
+
+Frontend:
+- React 19 (automatic performance features)
+- Code splitting (Next.js automatic)
+- Image optimization (next/image planned)
+- Lazy loading components (planned)
+- Memoization (useMemo, useCallback where needed)
+
+Backend:
+- Database indexes for fast queries
+- Connection pooling (Mongoose default)
+- Caching (planned: Redis)
+- Efficient queries (projection, lean)
+- Background jobs (cron) for heavy tasks
+
+Real-time:
+- Socket.io rooms for targeted broadcasts
+- Fallback polling (30s) not constant
+- Event batching (planned)
+
+Database:
+- Indexes on frequently queried fields
+- Compound indexes for multi-field queries
+- Lean queries when full docs not needed
+- Pagination (planned for large lists)
+
+Caching:
+- Cache helper: /src/lib/cache.js
+- In-memory caching (simple Map)
+- TTL (Time To Live) support
+- Cache invalidation on updates
+- Planned: Redis integration
+
+17.12 DEPLOYMENT
+----------------
+
+Platform: maybe render.com or any Node.js host
+
+Requirements:
+- Node.js 18.x or higher
+- preferably a database that can be in render.com
+- SMTP server for emails
+
+Environment Variables (Required):
+- JWT_SECRET: Secret for JWT signing
+- NEXT_PUBLIC_API_URL: API base URL
+- SMTP_HOST: Email server host
+- SMTP_PORT: Email server port
+- SMTP_USER: Email username
+- SMTP_PASS: Email password
+- CRON_SECRET: Secret for cron endpoints
+
+Build Process:
+1. npm install (install dependencies)
+2. npm run build (build Next.js app)
+3. npm start (start production server)
+
+Scripts (package.json):
+- npm run dev: Development server (port 3333)
+- npm run build: Production build
+- npm start: Production server
+- npm run lint: Run ESLint
+
+Vercel-Specific:
+- vercel.json: Cron job configuration
+- Automatic deployments on git push
+- Environment variables in dashboard
+- Serverless functions for API routes
+- Edge network for fast delivery
+
+Custom Server:
+- server.js must be used (not next start)
+- Vercel supports custom servers
+- Socket.io works on Vercel
+- Port configured in environment (or 3333 default)
+
+17.13 MONITORING & LOGGING
+---------------------------
+
+Current Logging:
+- Console.log throughout codebase
+- Connection status (MongoDB, Socket.io)
+- Email send results
+- Cron job executions
+- API errors
+
+Planned Enhancements:
+- Structured logging library (Winston, Pino)
+- Log levels (debug, info, warn, error)
+- Log aggregation service (Loggly, Papertrail)
+- Error tracking (Sentry)
+- Performance monitoring (New Relic, Datadog)
+- User analytics (Google Analytics, Mixpanel)
+
+Health Checks:
+- Database connection status
+- API endpoint health
+- Socket.io connection status
+- Cron job execution status
+
+17.14 TESTING
+-------------
+
+Current Status: No automated tests
+
+Planned Testing Strategy:
+
+Unit Tests:
+- Utility functions
+- Helper libraries
+- Data transformations
+- Framework: Jest
+
+Component Tests:
+- React components in isolation
+- Props and state behavior
+- Framework: React Testing Library
+
+Integration Tests:
+- API endpoints
+- Database operations
+- Authentication flows
+- Framework: Jest + Supertest
+
+End-to-End Tests:
+- Critical user flows
+- Check-in process
+- Lesson creation
+- Framework: Playwright or Cypress
+
+Test Coverage Goals:
+- Utility functions: 90%+
+- API routes: 80%+
+- Components: 70%+
+- Overall: 75%+
+
+================================================================================
+18. API ENDPOINTS
+================================================================================
+
+18.1 AUTHENTICATION ENDPOINTS
+------------------------------
+
+POST /api/auth/login
+- Email/password authentication
+- Returns JWT token in cookie
+- Returns user object
+
+POST /api/auth/pin
+- PIN-based authentication
+- Returns JWT token in cookie
+- Returns user object
+
+POST /api/auth/qr
+- QR code authentication
+- Returns JWT token in cookie
+- Returns user object
+
+GET /api/auth/me
+- Get current user from JWT
+- Validates token
+- Returns user object or 401
+
+POST /api/auth/logout
+- Clears JWT cookie
+- Returns success
+
+18.2 STUDENT ENDPOINTS
+----------------------
+
+GET /api/students
+- List all students
+- Query params: page, limit (planned)
+- Returns array of students with user details
+
+POST /api/students
+- Create new student
+- Body: student data + user data
+- Creates User + Student records
+- Returns created student
+
+GET /api/students/[id]
+- Get student by ID
+- Returns student with user details
+- Includes instruments, stats, subsidy info
+
+PUT /api/students/[id]
+- Update student
+- Body: updated student data
+- Returns updated student
+
+DELETE /api/students/[id]
+- Soft delete student
+- Sets isActive = false
+- Returns success
+
+GET /api/students/[id]/qr
+- Generate QR code for student
+- Returns QR code image (data URL)
+
+GET /api/students/[id]/get-pin
+- Retrieve student's PIN (plaintext)
+- Admin only
+- Returns PIN
+
+POST /api/students/[id]/reset-pin
+- Reset student's PIN
+- Generates new random PIN
+- Sends email notification
+- Returns new PIN
+
+18.3 TEACHER ENDPOINTS
+----------------------
+
+GET /api/teachers
+- List all teachers
+- Returns array with user details
+- Includes instruments, stats, rates
+
+POST /api/teachers
+- Create new teacher
+- Body: teacher data + user data
+- Creates User + Teacher records
+- Returns created teacher
+
+GET /api/teachers/[id]
+- Get teacher by ID
+- Returns teacher with user details
+- Includes availability, bio
+
+PUT /api/teachers/[id]
+- Update teacher
+- Body: updated teacher data
+- Returns updated teacher
+
+DELETE /api/teachers/[id]
+- Soft delete teacher
+- Sets isActive = false
+- Returns success
+
+GET /api/teachers/[id]/qr
+- Generate QR code for teacher
+- Returns QR code image (data URL)
+
+GET /api/teachers/[id]/get-pin
+- Retrieve teacher's PIN
+- Admin only
+- Returns PIN
+
+POST /api/teachers/[id]/reset-pin
+- Reset teacher's PIN
+- Generates new random PIN
+- Sends email notification
+- Returns new PIN
+
+18.4 LESSON ENDPOINTS
+---------------------
+
+GET /api/lessons
+- List/filter lessons
+- Query params:
+  * date: Filter by date
+  * teacherId: Filter by teacher
+  * studentId: Filter by student
+  * roomId: Filter by room
+  * status: Filter by status
+- Returns array of lessons
+
+POST /api/lessons
+- Create new lesson
+- Body: lesson data
+- Validates availability
+- Returns created lesson
+
+GET /api/lessons/[id]
+- Get lesson by ID
+- Returns lesson with populated refs
+- Includes teacher, student, room names
+
+PUT /api/lessons/[id]
+- Update lesson
+- Body: updated lesson data
+- Returns updated lesson
+
+DELETE /api/lessons/[id]
+- Cancel lesson
+- Sets status = 'cancelled'
+- Sends notifications
+- Returns success
+
+POST /api/lessons/[id]/notes
+- Add/update teacher notes
+- Body: { notes: string }
+- Teacher or admin only
+- Returns updated lesson
+
+POST /api/lessons/[id]/reschedule
+- Reschedule lesson
+- Body: { newDate, newTime }
+- Validates availability
+- Sends notifications
+- Returns updated lesson
+
+GET /api/lessons/today
+- Get all lessons for today
+- Used by dashboard and live overview
+- Returns array of today's lessons
+
+POST /api/lessons/auto-complete
+- Auto-complete finished lessons
+- Called by cron job
+- Finds in-progress lessons past end time
+- Sets status = 'completed'
+- Returns count of completed lessons
+
+POST /api/lessons/checkin
+- Check in for lesson
+- Body: { pin: string }
+- Validates user and lesson
+- Updates check-in timestamp
+- Broadcasts Socket.io event
+- Returns lesson details and room
+
+18.5 SCHEDULE ENDPOINTS
+-----------------------
+
+GET /api/schedules
+- List all schedules
+- Query params:
+  * teacherId: Filter by teacher
+  * studentId: Filter by student
+  * roomId: Filter by room
+  * dayOfWeek: Filter by day
+  * isActive: Filter by active status
+- Returns array of schedules
+
+POST /api/schedules
+- Create new schedule
+- Body: schedule data
+- Validates conflicts
+- Returns created schedule
+
+GET /api/schedules/[id]
+- Get schedule by ID
+- Returns schedule details
+
+PUT /api/schedules/[id]
+- Update schedule
+- Body: updated schedule data
+- Returns updated schedule
+
+DELETE /api/schedules/[id]
+- Delete schedule
+- Removes from database
+- Returns success
+
+18.6 ROOM ENDPOINTS
+-------------------
+
+GET /api/rooms
+- List all rooms
+- Returns array of rooms
+
+POST /api/rooms
+- Create new room
+- Body: room data
+- Returns created room
+
+GET /api/rooms/[id]
+- Get room by ID
+- Returns room details
+
+PUT /api/rooms/[id]
+- Update room
+- Body: updated room data
+- Returns updated room
+
+DELETE /api/rooms/[id]
+- Soft delete room
+- Sets isActive = false
+- Returns success
+
+GET /api/rooms/live
+- Get real-time status of all rooms
+- Calculates current lesson, next lesson
+- Calculates time remaining
+- Returns array with status: occupied/upcoming/available
+
+18.7 PAYMENT ENDPOINTS
+----------------------
+
+GET /api/payments
+- List all payments
+- Query params:
+  * studentId: Filter by student
+  * status: Filter by status
+  * dateFrom: Start date
+  * dateTo: End date
+- Returns array of payments
+
+POST /api/payments
+- Create new payment
+- Body: payment data
+- Generates invoice number
+- Returns created payment
+
+GET /api/payments/[id]
+- Get payment by ID
+- Returns payment details
+
+PUT /api/payments/[id]
+- Update payment
+- Body: updated payment data
+- Returns updated payment
+
+DELETE /api/payments/[id]
+- Delete payment (if pending)
+- Only allowed for pending payments
+- Returns success
+
+GET /api/payments/[id]/invoice
+- Generate invoice PDF
+- Returns PDF file
+- Downloads automatically
+
+GET /api/payments/summary/[studentId]
+- Get payment summary for student
+- Calculates total paid, total owed, balance
+- Returns summary object
+
+18.8 BILLING ENDPOINTS
+----------------------
+
+GET /api/billing
+- List billing records
+- Query params:
+  * teacherId: Filter by teacher
+  * month: Filter by month
+  * year: Filter by year
+  * status: Filter by status
+- Returns array of billing records
+
+POST /api/billing
+- Create billing record
+- Body: billing data
+- Usually called by automated job
+- Returns created billing
+
+GET /api/billing/[id]
+- Get billing by ID
+- Returns billing details with lessons
+
+PUT /api/billing/[id]
+- Update billing
+- Body: updated billing data (usually status change)
+- Returns updated billing
+
+DELETE /api/billing/[id]
+- Delete billing
+- Returns success
+
+18.9 SUBSIDIZER ENDPOINTS
+--------------------------
+
+GET /api/subsidizers
+- List all subsidizers
+- Returns array of subsidizers
+
+POST /api/subsidizers
+- Create subsidizer
+- Body: subsidizer data
+- Returns created subsidizer
+
+GET /api/subsidizers/[id]
+- Get subsidizer by ID
+- Returns subsidizer details
+
+PUT /api/subsidizers/[id]
+- Update subsidizer
+- Body: updated data
+- Returns updated subsidizer
+
+DELETE /api/subsidizers/[id]
+- Soft delete subsidizer
+- Sets isActive = false
+- Returns success
+
+18.10 TEACHER ABSENCE ENDPOINTS
+--------------------------------
+
+GET /api/teacher-absences
+- List teacher absences
+- Query params:
+  * teacherId: Filter by teacher
+  * upcoming: true for future absences
+  * status: Filter by status
+- Returns array of absences
+
+POST /api/teacher-absences
+- Create teacher absence
+- Body: absence data
+- Finds affected lessons
+- Creates substitute requests
+- Returns created absence + affected lesson count
+
+GET /api/teacher-absences/[id]
+- Get absence by ID
+- Returns absence details
+
+PUT /api/teacher-absences/[id]
+- Update absence
+- Body: updated data
+- Returns updated absence
+
+DELETE /api/teacher-absences/[id]
+- Cancel absence
+- Sets status = 'cancelled'
+- Returns success
+
+18.11 SUBSTITUTE REQUEST ENDPOINTS
+-----------------------------------
+
+GET /api/substitute-requests
+- List substitute requests
+- Query params:
+  * status: Filter by status
+  * absenceId: Filter by absence
+  * teacherId: Filter by original or substitute teacher
+- Returns array of requests
+
+GET /api/substitute-requests/[id]
+- Get substitute request by ID
+- Returns request with suggestions
+
+POST /api/substitute-requests/[id]/approve
+- Approve substitute for request
+- Body: { substituteTeacherId, approvedBy }
+- Updates lesson with new teacher
+- Updates request status
+- Sends notifications
+- Returns updated request
+
+18.12 REPORT ENDPOINTS
+----------------------
+
+GET /api/reports/billing
+- Teacher billing report
+- Query params:
+  * month: Month number (1-12)
+  * year: Year number
+  * teacherId: Specific teacher or omit for all
+- Returns billing data
+
+GET /api/reports/attendance
+- Student attendance report
+- Query params:
+  * month: Month number
+  * year: Year number
+  * studentId: Specific student or omit for all
+- Returns attendance data
+
+GET /api/reports/subsidizer
+- Subsidizer impact report
+- Query params:
+  * month: Month number
+  * year: Year number
+  * subsidizerId: Specific subsidizer or omit for all
+- Returns subsidy data
+
+GET /api/reports/room-utilization
+- Room utilization report
+- Query params:
+  * month: Month number
+  * year: Year number
+- Returns room usage statistics
+
+GET /api/reports/attendance-trends
+- Attendance trends over time
+- Query params:
+  * months: Number of months to include (default: 6)
+  * year: Current year
+- Returns trend data
+
+GET /api/reports/monthly
+- Comprehensive monthly report
+- Query params:
+  * month: Month number
+  * year: Year number
+  * teacherId: Optional teacher filter
+- Returns monthly summary
+
+18.13 CRON JOB ENDPOINTS
+------------------------
+
+POST /api/cron/send-reminders
+- Send lesson reminders
+- Requires CRON_SECRET header
+- Finds lessons tomorrow without reminders
+- Sends emails to teachers and students
+- Sets reminderSent flag
+- Returns count of reminders sent
+
+POST /api/cron/send-daily-summary
+- Send daily lesson summaries
+- Requires CRON_SECRET header
+- Finds all lessons today
+- Groups by user
+- Sends one email per user with their schedule
+- Sets dailySummarySent flag
+- Returns count of summaries sent
+
+18.14 CHECK-IN ENDPOINT
+-----------------------
+
+POST /api/checkin
+- Check in for lesson
+- Body: { pin: string }
+- Authenticates user via PIN
+- Finds user's next lesson (within 60 minutes)
+- Records check-in timestamp
+- Changes status to 'in-progress' if first check-in
+- Broadcasts 'checkin' event via Socket.io
+- Returns: user, lesson details, room assignment
+- Public endpoint (no auth required)
+
+18.15 ADMIN ENDPOINTS
+---------------------
+
+GET /api/admin
+- Get system information
+- Admin only
+- Returns:
+  * Total users
+  * Total students
+  * Total teachers
+  * Total lessons
+  * System stats
+
+POST /api/admin/seed
+- Seed database with sample data
+- Dev/testing only
+- Creates sample users, students, teachers, rooms, lessons
+- Returns success
+
+POST /api/admin/reset
+- Reset database (delete all data)
+- Dev/testing only (should be disabled in production)
+- Returns success
+
+18.16 TEST ENDPOINT
+-------------------
+
+GET /api/test
+- Test endpoint for debugging
+- Returns: { message: "API is working", timestamp }
+
+================================================================================
+APPENDIX A: GLOSSARY
+================================================================================
+
+Terms:
+- SOLU: School name (Solu Worship Music School)
+- RTL: Right-to-Left (text direction for Hebrew)
+- RBAC: Role-Based Access Control
+- JWT: JSON Web Token
+- ODM: Object Document Mapper (Mongoose)
+- CRUD: Create, Read, Update, Delete
+- API: Application Programming Interface
+- i18n: Internationalization (18 letters between 'i' and 'n')
+- QR: Quick Response (code)
+- SMTP: Simple Mail Transfer Protocol
+- PDF: Portable Document Format
+- CSV: Comma-Separated Values
+
+Roles:
+- Admin: Full system access, management capabilities
+- Teacher: Can view schedules, mark attendance, add notes
+- Student: Can check in, view own information
+
+Lesson Statuses:
+- scheduled: Lesson is planned for future
+- in-progress: Lesson is currently happening
+- completed: Lesson finished successfully
+- cancelled: Lesson was cancelled
+- no-show: Student didn't attend
+
+================================================================================
+APPENDIX B: ENVIRONMENT VARIABLES
+================================================================================
+
+Required:
+MONGODB_URI: MongoDB connection string
+JWT_SECRET: Secret key for JWT token signing
+
+Optional:
+SMTP_HOST: Email server hostname
+SMTP_PORT: Email server port (587 or 465)
+SMTP_USER: Email username
+SMTP_PASS: Email password
+CRON_SECRET: Secret for authenticating cron job requests
+PORT: Server port (default: 3333)
+NODE_ENV: Environment (development | production)
+
+Example .env.local:
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/soluschool
+JWT_SECRET=your-secret-key-here-change-in-production
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+CRON_SECRET=your-cron-secret
+PORT=3333
+NODE_ENV=development
+
+================================================================================
+APPENDIX C: SCRIPTS
+================================================================================
+
+Available Scripts:
+
+Development:
+npm run dev - Start development server (http://localhost:3333)
+
+Production:
+npm run build - Build for production
+npm start - Start production server
+
+Utilities:
+npm run lint - Run ESLint
+npm run seed - Seed database with sample data (planned)
+npm run create-admin - Create admin user (planned)
+
+Database Scripts (in /scripts):
+node scripts/seed.js - Seed database
+node scripts/create-admin.js - Create admin user
+node scripts/migrateTeacherPasswords.js - Migrate teacher passwords
+(Additional utility scripts available in /scripts directory)
+
+================================================================================
+APPENDIX D: FUTURE ENHANCEMENTS
+================================================================================
+
+Planned Features:
+
+1. Automatic Schedule Generation
+   - Cron job to generate lessons from schedules
+   - Weekly or daily generation
+   - Conflict detection and resolution
+
+2. SMS Notifications
+   - Integration with SMS provider (Twilio)
+   - SMS reminders in addition to email
+   - Check-in confirmations via SMS
+
+3. Payment Integration
+   - Online payment processing (Stripe, PayPal)
+   - Automatic invoice generation
+   - Payment reminders
+
+4. Parent Portal
+   - Dedicated parent login
+   - View child's lessons and progress
+   - Make payments online
+   - Receive notifications
+
+5. Calendar Integration
+   - Export to Google Calendar, iCal
+   - Sync lessons to personal calendars
+   - Automatic updates on changes
+
+6. Advanced Reporting
+   - Custom report builder
+   - Scheduled report delivery
+   - Data visualization dashboards
+   - Export to multiple formats
+
+7. Attendance Tracking
+   - Biometric check-in (fingerprint)
+   - Facial recognition (camera)
+   - NFC/RFID cards
+
+8. Practice Logging
+   - Students log practice hours
+   - Goal setting and tracking
+   - Progress reports for parents
+
+9. Video Lessons
+   - Integrated video conferencing
+   - Record and archive lessons
+   - Remote teaching capabilities
+
+10. Mobile Apps
+    - Native iOS app
+    - Native Android app
+    - Push notifications
+    - Offline mode
+
+11. Resource Library
+    - Sheet music repository
+    - Tutorial videos
+    - Practice tracks
+    - Student portfolios
+
+12. Advanced Scheduling
+    - AI-powered schedule optimization
+    - Automatic conflict resolution
+    - Room allocation algorithm
+    - Waiting list management
+
+13. Financial Management
+    - Profit/loss statements
+    - Tax report generation
+    - Expense tracking
+    - Budget planning
+
+14. Marketing Tools
+    - Email campaigns
+    - Student recruitment tracking
+    - Referral program
+    - Promotional discounts
+
+15. Analytics & Insights
+    - Machine learning predictions
+    - Student retention analysis
+    - Revenue forecasting
+    - Performance benchmarking
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
+
+This document comprehensively describes all features and functionality of the
+SOLU Music School Management System as of October 30, 2025.
+
+For questions, issues, or contributions:
+- GitHub: [Repository URL]
+- Email: support@soluisrael.org
+- Documentation: https://docs.soluschool.com (planned)
+
+Last Updated: 2025-10-30
+Version: 1.0.0
+Author: System Analysis & Documentation Team

@@ -1,0 +1,41 @@
+{
+  "name": "solu-worship-school",
+  "version": "1.0.0",
+  "description": "SOLU Music School Management System",
+  "private": true,
+  "scripts": {
+    "dev": "node server.js",
+    "build": "next build",
+    "start": "NODE_ENV=production node server.js",
+    "lint": "next lint",
+    "cron": "node scripts/local-cron.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.1.0",
+    "@tanstack/react-query": "^5.70.2",
+    "bcryptjs": "^2.4.3",
+    "bootstrap": "^5.3.8",
+    "dotenv": "^17.2.3",
+    "html5-qrcode": "^2.3.8",
+    "jsonwebtoken": "^9.0.2",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
+    "moment": "^2.30.1",
+    "next": "15.1.5",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^6.9.17",
+    "qrcode": "^1.5.4",
+    "react": "^19.0.0",
+    "react-big-calendar": "^1.19.4",
+    "react-bootstrap": "^2.10.10",
+    "react-dom": "^19.0.0",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^11.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "15.1.5",
+    "prisma": "^6.1.0"
+  }
+}
