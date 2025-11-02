@@ -148,17 +148,6 @@ export default function LoginPage() {
               {loading ? 'מתחבר...' : 'התחבר'}
             </Button>
           </Form>
-
-          {loginMode === 'email' && (
-            <>
-              <hr className="my-3" />
-              <div className="text-center">
-                <small className="text-muted">
-                  Admin: admin@soluschool.com / admin123
-                </small>
-              </div>
-            </>
-          )}
         </Card.Body>
       </Card>
     </Container>
