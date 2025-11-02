@@ -65,6 +65,8 @@ app.prepare().then(() => {
 
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
 
         // Get all rooms
         const rooms = await prisma.room.findMany({
@@ -72,10 +74,13 @@ app.prepare().then(() => {
           orderBy: { name: 'asc' }
         });
 
-        // Get today's lessons
+        // Get today's lessons (use date range instead of exact match)
         const lessons = await prisma.lesson.findMany({
           where: {
-            date: today,
+            date: {
+              gte: today,
+              lt: tomorrow
+            },
             status: { in: ['scheduled', 'in_progress', 'completed'] }
           },
           include: {
